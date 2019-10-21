@@ -3,23 +3,26 @@
 --------  
 ## Theory  
 
-H1. Premise: Total community abundance is limited by the available energy in the local ecosystem  
-	Premise: Populations with lower abundances are more susceptible to chance extirpation  
-	Premise: Species with low per-individual energy requirements can attain higher densities on average  
-	Ergo 1:	 Species with low per-individual energy requirements should be more common in low energy environments  
+### H1.  
+**Premise:** Total community abundance is limited by the available energy in the local ecosystem  
+**Premise:** Populations with lower abundances are more susceptible to chance extirpation  
+**Premise:** Species with low per-individual energy requirements can attain higher densities on average  
+**Ergo 1:**	 Species with low per-individual energy requirements should be more common in low energy environments  
 	
-H2. Premise: Colony success is determined by the total resources able to be acquired  
-	Premise: Low energy environments require more search time per unit of acquired energy  
-	Premise: Extreme temperatures constrain the time an individual can forage  
-	Premise: Colonies can extend the range of foraging temperatures with variability in worker thermal tolerance  
-	Ergo 2a: Cold, low energy environments should select for colonies with high variance in thermal traits  
-	Ergo 2b: Thermal-related traits should covary within individual workers  
+### H2.  
+**Premise:** Colony success is determined by the total resources able to be acquired  
+**Premise:** Low energy environments require more search time per unit of acquired energy  
+**Premise:** Extreme temperatures constrain the time an individual can forage  
+**Premise:** Colonies can extend the range of foraging temperatures with variability in worker thermal tolerance  
+**Ergo 2a:** Cold, low energy environments should select for colonies with high variance in thermal traits  
+**Ergo 2b:** Thermal-related traits should covary within individual workers  
 	
-H3. Premise: The genetic or behavioural mechanisms driving intraspecific variation are phylogenetically conserved  
-	Premise: The degree of polymorphism varies among subfamilies and genera  
-	Premise: The predisposition for variability within a clade allows more variation within species on average  
-	Ergo 3a: Genera with more variation should also show more variation within each species  
-	Ergo 3b: Genera with more polymorphic species should show more variation within each species  
+### H3.  
+**Premise:** The genetic or behavioural mechanisms driving intraspecific variation are phylogenetically conserved  
+**Premise:** The degree of polymorphism varies among subfamilies and genera  
+**Premise:** The predisposition for variability within a clade allows more variation within species on average  
+**Ergo 3a:** Genera with more variation should also show more variation within each species  
+**Ergo 3b:** Genera with more polymorphic species should show more variation within each species  
 
 
 --------  
