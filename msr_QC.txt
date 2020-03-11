@@ -11,26 +11,26 @@ Lasi.ful: 1848, all dorsal
 # Measurements to confirm:
 
 Lasi_nige
-0284, 3, MidTibia
-0309, 2, WebersLength
-0358, 3, HindFemur
-1087, 3, MidFemur
-1655, 3, InterocularDistance
-1655, 3, WebersLength
-1684, 2, HindTibia
-1752, 4, MidFemur
-1762, 1, MidFemur
+-0284, 3, MidTibia
+-0309, 2, WebersLength
+-0358, 3, HindFemur
+-1087, 3, MidFemur
+-1655, 3, InterocularDistance
+-1655, 3, WebersLength
+-1684, 2, HindTibia
+-1752, 4, MidFemur
+-1762, 1, MidFemur
 
 Lasi_fuli
-0320, 1, MesosomaWidth
-1280, 3, MesosomaWidth
-1280, 4, HindTibia
-1511, 1, HindTibia
-2915, 2, HindTibia
-2915, 2, MidTibia
+-0320, 1, MesosomaWidth
+-1280, 3, MesosomaWidth
+-1280, 4, HindTibia
+-1511, 1, HindTibia
+-2915, 2, HindTibia
+-2915, 2, MidTibia
 
 Lasi_plat
-0767, 1, MidFemur
-1115, 2, HindFemur
-1115, 3, HindTibia
-1118, 3, MidTibia
+-0767, 1, MidFemur
+-1115, 2, HindFemur
+-1115, 3, HindTibia
+-1118, 3, MidTibia
