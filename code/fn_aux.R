@@ -6,10 +6,11 @@
 #' LAS measurements: Aggregate measurements for a single worker
 #' 
 #' @param f_LAS file name of LAS .xslx report, including directory
+#' @param na.thresh minimum trait value; values smaller are marked NA
 #' @return Dataframe with a row for each measurement and columns for Trait
 #'   (numeric), Value (mm), and Worker
 
-aggregate_measurements <- function(f_LAS) {
+aggregate_measurements <- function(f_LAS, na.thresh=0.05) {
   map2_dfr(f_LAS, grep("Profile", excel_sheets(f_LAS), value=T),
            ~read_xlsx(.x, .y, skip=1, progress=F,
                       col_types=rep(c("numeric", "skip"), each=2)) %>% 
@@ -19,7 +20,8 @@ aggregate_measurements <- function(f_LAS) {
              summarise(Value=sqrt(diff(x)^2 + diff(y)^2) %>%
                          units::as_units(., first(unit)) %>%
                          units::set_units(., "mm") %>%
-                         as.numeric) %>%
+                         as.numeric %>%
+                         replace(., . < na.thresh, NA)) %>%
              mutate(Worker=str_sub(.x, -6, -6)), 
            .id="Trait") 
 }
@@ -35,6 +37,7 @@ aggregate_measurements <- function(f_LAS) {
 #' @param ant_i dataframe with ant species, covariates, etc for each tube number
 #' @param msr_dir directory containing LAS xlsx reports; recursive search
 #' @param col_dir directory containing color histograms; recursive search
+#' @param na.thresh minimum trait value; values smaller are marked NA
 #' @param lat_names vector of trait names for lateral view
 #' @param fro_names vector of trait names for frontal view
 #' @param dor_names vector of trait names for dorsal view
@@ -42,12 +45,8 @@ aggregate_measurements <- function(f_LAS) {
 #'   colony-level mean and sd values for each trait. Each is joined by all
 #'   columns from ant_i, but only tubes with trait measurements are included
 
-load_traits <- function(ant_i, msr_dir, col_dir,
-                        lat_names=c("WebersLength", "HindTibia", "MidTibia"),
-                        fro_names=c("HeadLength", "HeadWidth", 
-                                    "InterocularDistance", "ScapeLength"),
-                        dor_names=c("MesosomaWidth", "MesosomaLength", 
-                                    "HindFemur", "MidFemur")) {
+load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
+                        lat_names, fro_names, dor_names) {
   # setup
   msr.tubes <- dir(msr_dir, "^999", include.dirs=T, recursive=T)
   col.tubes <- dir(col_dir, "^999", include.dirs=T, recursive=T)
