@@ -1,0 +1,7 @@
+# Need to pin:
+Lasi.flav: 0888: bag 100
+
+
+
+# Need to image: 
+Lasi.ful: 1848, all dorsal
