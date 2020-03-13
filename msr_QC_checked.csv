@@ -1,4 +1,11 @@
 SPECIESID,TubeNo,Worker,Trait
+Form_cuni,9990123,3,MesosomaWidth
+Form_cuni,9990296,2,HindTibia
+Form_cuni,9990360,3,HeadLength
+Form_cuni,9990360,3,HindTibia
+Form_cuni,9990360,3,InterocularDistance
+Form_cuni,9990360,3,WebersLength
+Form_cuni,9992132,1,HindTibia
 Lasi_flav,9990275,4,HindTibia
 Lasi_flav,9990930,2,HeadLength
 Lasi_flav,9990930,2,HindTibia
@@ -44,3 +51,4 @@ Mani_rubi,9990059,2,HindTibia
 Mani_rubi,9990508,2,HindTibia
 Mani_rubi,9992341,2,MesosomaWidth
 Mani_rubi,9992341,2,MidFemur
+Mani_rubi,9992341,2,WebersLength
