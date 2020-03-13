@@ -100,6 +100,7 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
   }
   close(pb)
   
+  # color dataframes
   col.wkr <- do.call('rbind', col.ls) %>%
     gather(channel, count, 1:3) %>%
     group_by(TubeNo, Worker, channel) %>%
@@ -119,18 +120,45 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
            s=rgb2hsv(R, G, B, maxColorValue=255)[2,],
            v=rgb2hsv(R, G, B, maxColorValue=255)[3,]) 
   
-  traits.df <- rbind(do.call("rbind", fro_all), 
+  # aggregated dataframes
+  wkr.df <- rbind(do.call("rbind", fro_all), 
                      do.call("rbind", lat_all), 
                      do.call("rbind", dor_all)) %>%
     full_join(., col.wkr, by=c("TubeNo", "Worker")) %>%
-    left_join(., ant_i, by="TubeNo")
-  colony.df <- traits.df %>% group_by(TubeNo, Trait) %>% 
+    left_join(., ant_i, by="TubeNo") %>%
+    filter(SPECIESID != "Myrm_rugi")
+  
+  clny.df <- wkr.df %>% group_by(TubeNo, Trait) %>% 
     summarise(mnValue=mean(Value),
               sdValue=sd(Value)) %>%
     full_join(., col.clny, by=c("TubeNo")) %>%
-    left_join(., ant_i, by="TubeNo")
+    left_join(., ant_i, by="TubeNo") %>%
+    filter(SPECIESID != "Myrm_rugi")
   
-  return(list(wkr.df=traits.df, clny.df=colony.df))
+  # standardized by species
+  wkr.std <- wkr.df %>% 
+    group_by(SPECIESID, Trait) %>%
+    mutate(Value=(Value-mean(Value, na.rm=T))/sd(Value, na.rm=T), 
+           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T))
+  clny.std <- clny.df %>% 
+    group_by(SPECIESID, Trait) %>%
+    mutate(mnValue=(mnValue-mean(mnValue, na.rm=T))/sd(mnValue, na.rm=T), 
+           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T))
+  
+  # wide format
+  wkr.wide <- wkr.df %>% 
+    pivot_wider(names_from=Trait, values_from=Value) %>%
+    mutate(MidLen=MidFemur+MidTibia, HindLen=HindFemur+HindTibia, 
+           MesoSA=MesosomaLength*MesosomaWidth)
+  clny.wide <- clny.df %>% 
+    pivot_wider(names_from=Trait, values_from=c(mnValue, sdValue)) %>%
+    mutate(MidLen=mnValue_MidFemur+mnValue_MidTibia, 
+           HindLen=mnValue_HindFemur+mnValue_HindTibia, 
+           MesoSA=mnValue_MesosomaLength*mnValue_MesosomaWidth)
+  
+  return(list(wkr.df=wkr.df, clny.df=clny.df, 
+              wkr.std=wkr.std, clny.std=clny.std, 
+              wkr.wide=wkr.wide, clny.wide=clny.wide))
 }
 
 
