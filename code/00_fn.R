@@ -125,15 +125,13 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
                      do.call("rbind", lat_all), 
                      do.call("rbind", dor_all)) %>%
     full_join(., col.wkr, by=c("TubeNo", "Worker")) %>%
-    left_join(., ant_i, by="TubeNo") %>%
-    filter(SPECIESID != "Myrm_rugi")
+    left_join(., ant_i, by="TubeNo")
   
   clny.df <- wkr.df %>% group_by(TubeNo, Trait) %>% 
     summarise(mnValue=mean(Value),
               sdValue=sd(Value)) %>%
     full_join(., col.clny, by=c("TubeNo")) %>%
-    left_join(., ant_i, by="TubeNo") %>%
-    filter(SPECIESID != "Myrm_rugi")
+    left_join(., ant_i, by="TubeNo")
   
   # standardized by species
   wkr.std <- wkr.df %>% 
