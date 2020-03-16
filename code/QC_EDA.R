@@ -2,17 +2,14 @@
 # Trait measurements and color processing
 
 
-library(tidyverse); library(readxl); library(googlesheets); 
-theme_set(theme_bw() + theme(panel.grid=element_blank()))
-library(viridis); library(GGally)
-source("code/fn_aux.R")
-source("~/Documents/unil/opfo_str_sampling/code/opfo_fn.R")
-source("~/Documents/unil/ms_unil/CH_diversity/code/00_fn.R")
-source("~/Documents/unil/opfo_str_sampling/code/lc_cols.R")
+library(tidyverse); library(readxl); library(googlesheets); library(viridis); 
+library(GGally); theme_set(theme_bw() + theme(panel.grid=element_blank()))
+source("code/00_traits_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_opfo_fn"), ".R"), source)
 
 
 msr_dir <- "/Volumes/BOOTCAMP/Users/tsz/Desktop/opfo_images/"
-col_dir <- "data/trait_test/"
+col_dir <- "data/img/"
 
 
 trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
@@ -30,10 +27,10 @@ trts <- load_traits(ant_i=ant.ls$str, msr_dir=msr_dir, col_dir=col_dir,
 
 
 # Data QC
-qc.done <- read_csv("msr_QC_checked.csv")
+qc.done <- read_csv("data/data_QC/msr_QC_checked.csv")
 trait_name.df <- enframe(trait_names) %>% unnest(cols=c(value))
 
-map(unique(trts$wkr.df$SPECIESID)[1:7],
+map(unique(trts$wkr.df$SPECIESID),
     ~ggplot(filter(trts$wkr.std, !is.na(Value) & SPECIESID==.), 
             aes(x=mnt25, y=Value)) + facet_wrap(~Trait) + 
       ggtitle(.) + geom_point(aes(colour=abs(Value)>qnorm(0.995) & 
@@ -56,7 +53,7 @@ qc.todo <- trts$wkr.std %>%
   select(SPECIESID, TubeNo, img, Trait, Value) %>%
   arrange(SPECIESID, TubeNo, img, Trait)
 qc.todo %>% print.AsIs
-write_csv(qc.todo, "msr_QC_todo.csv")
+write_csv(qc.todo, "data/data_QC/msr_QC_todo.csv")
 
 
 
@@ -70,10 +67,13 @@ plot_colors_by_v(filter(trts$wkr.df, !is.na(med_R)),
 
 # traits across environmental variables
 ggplot(trts$clny.std, aes(mnt25, mnValue)) + 
-  facet_grid(SPECIESID~Trait, scales="free") +
+  facet_grid(SPECIESID~Trait, scales="free", drop=T) +
   geom_point(data=trts$wkr.std, aes(y=Value), shape=1, alpha=0.7, size=0.7) +
   geom_point(alpha=0.9) +
   stat_smooth(method="lm", se=F, linetype=2, size=0.5) 
+ggplot(trts$clny.df, aes(mnt25, mnValue, group=SPECIESID)) + 
+  facet_wrap(~Trait, scales="free") +
+  stat_smooth(method="lm", se=F, linetype=2, size=0.5, colour="gray30") 
 ggplot(trts$clny.std, aes(bio1_tmean_8110, mnValue)) + 
   facet_grid(SPECIESID~Trait, scales="free") +
   geom_point(data=trts$wkr.std, aes(y=Value), shape=1, alpha=0.7, size=0.7) +
@@ -89,3 +89,8 @@ ggplot(trts$clny.df, aes(mnt25, sdValue/mnValue)) +
   geom_point(alpha=0.9) +
   stat_smooth(method="lm", se=F, linetype=2, size=0.5) 
 
+
+
+ggplot(trts$clny.wide, aes(mnt25, mnValue_HindTibia/mnValue_WebersLength, 
+                         group=SPECIESID)) + 
+  stat_smooth(method="lm", se=F, linetype=2, size=0.5, colour="gray30") 
