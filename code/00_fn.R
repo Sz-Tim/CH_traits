@@ -32,6 +32,28 @@ aggregate_measurements <- function(f_LAS, na.thresh=0.05) {
 
 
 
+#' Add values from raster covariates
+#'
+#' @param ant_i dataframe with ant species, covariates, etc for each tube number
+#' @param cov_f named list of raster file paths
+#' @return Updated ant_i with the values for each point from each raster in
+#'   cov_f, where the column names are the names of the items in cov_f
+
+add_covariates <- function(ant_i, cov_f) {
+  
+  for(i in seq_along(cov_f)) {
+    ant_i[[names(cov_f)[i]]] <- raster::extract(raster::raster(cov_f[[i]]),
+                                                ant_i, fun=mean)
+  }
+  
+  return(ant_i)
+}
+
+
+
+
+
+
 #' Load and aggregate all measurements (LAS, color) within specified directories
 #'
 #' @param ant_i dataframe with ant species, covariates, etc for each tube number
