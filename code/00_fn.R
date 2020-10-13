@@ -70,8 +70,8 @@ add_covariates <- function(ant_i, cov_f) {
 load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
                         lat_names, fro_names, dor_names) {
   # setup
-  msr.tubes <- dir(msr_dir, "^999", include.dirs=T, recursive=T)
-  col.tubes <- dir(col_dir, "^999", include.dirs=T, recursive=T)
+  msr.tubes <- dir(msr_dir, "^[1-9]", include.dirs=T, recursive=T)
+  col.tubes <- dir(col_dir, "^[1-9]", include.dirs=T, recursive=T)
   fro_all <- lat_all <- dor_all <- vector("list", length(msr.tubes))
   
   pb <- txtProgressBar(min=1, max=length(msr.tubes)+length(col.tubes))
