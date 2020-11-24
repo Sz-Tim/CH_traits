@@ -188,6 +188,69 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
 
 
 
+#' Prior predictive check
+#'
+#' Generate simulated trait distributions for colonies and workers based on
+#' specified priors. Useful for confirming that priors are constrained to
+#' reasonable values, particularly for the heteroskedastic term, which can
+#' generate absurdly large values for standard deviations if priors are overly
+#' broad.
+#'
+#' @param d.ls list to use as basis for generated traits. Must include elements
+#'   \code{.$S}, \code{.$G}, \code{.$P_mn}, \code{.$P_sd}, \code{.$N_clny},
+#'   \code{.$spp_id}, \code{.$tax_i}, \code{.$x_mn}, \code{.$x_sd}, and
+#'   \code{.$clny_id}
+#' @param hyperpriors list of hyperprior values. Must include
+#'   \code{.$sigma_clny_1_global}, \code{.$sigma_clny_2_global}, \code{.$alpha},
+#'   \code{.$beta}, \code{.$sigma_A}, \code{.$sigma_B}, \code{.$sigma_a},
+#'   \code{.$sigma_b}, \code{.$L_A}, and \code{.$L_B}
+#' @return list with \code{.$priors} and \code{.$sims}, with all prior
+#'   distributions and predictions for colony-level \code{.$mu}, \code{.$delta},
+#'   \code{.$y_bar}, \code{.$d}, and worker-level \code{.$y}, where the values
+#'   correspond with those in \code{d.ls}
+
+prior_predictive_check <- function(d.ls, hyperpriors) {
+  library(tidyverse)
+  
+  # Generate priors for distributions dependent on hyperpriors
+  priors <- hyperpriors %>%
+    list_modify(sigma_clny_1=rexp(d.ls$S, .$sigma_clny_1_global),
+                sigma_clny_2=rexp(d.ls$S, .$sigma_clny_2_global),
+                z_A=matrix(rnorm(d.ls$P_sd*d.ls$G, 0, 1), d.ls$P_sd, d.ls$G),
+                z_B=matrix(rnorm(d.ls$P_mn*d.ls$G, 0, 1), d.ls$P_mn, d.ls$G),
+                z_a=matrix(rnorm(d.ls$P_sd*d.ls$S, 0, 1), d.ls$P_sd, d.ls$S),
+                z_b=matrix(rnorm(d.ls$P_mn*d.ls$S, 0, 1), d.ls$P_mn, d.ls$S),
+                L_A=rethinking::rlkjcorr(n=1, K=d.ls$P_sd, eta=1),
+                L_B=rethinking::rlkjcorr(n=1, K=d.ls$P_mn, eta=1)) %>%
+    list_modify(resid_clny_1=rnorm(d.ls$N_clny, 0, .$sigma_clny_1[d.ls$spp_id]),
+                resid_clny_2=rnorm(d.ls$N_clny, 0, .$sigma_clny_2[d.ls$spp_id]),
+                A=(diag(.$sigma_A) %*% .$L_A) %*% .$z_A,
+                B=(diag(.$sigma_B) %*% .$L_B) %*% .$z_B) %>%
+    list_modify(a=t(sapply(1:d.ls$P_sd, function(x) .$A[x,d.ls$tax_i[,2]] + 
+                             .$z_a[x,] * .$sigma_a[x])),
+                b=t(sapply(1:d.ls$P_mn, function(x) .$B[x,d.ls$tax_i[,2]] + 
+                             .$z_b[x,] * .$sigma_b[x]))) 
+  
+  sims <- list(mu=map_dbl(1:d.ls$N_clny, 
+                          ~d.ls$x_mn[.x,] %*% 
+                            (priors$beta + priors$b[,d.ls$spp_id[.x]])),
+               delta=map_dbl(1:d.ls$N_clny, 
+                             ~d.ls$x_sd[.x,] %*% 
+                               (priors$alpha + priors$a[,d.ls$spp_id[.x]]))) %>%
+    list_merge(y_bar=.$mu + priors$resid_clny_1,
+               d=exp(.$delta + priors$resid_clny_2)) %>%
+    list_merge(y=rnorm(d.ls$N_wkr, .$y_bar[d.ls$clny_id], .$d[d.ls$clny_id]))
+  
+  return(list(priors=priors, sims=sims))
+}
+
+
+
+
+
+
+
+
 
 
 
@@ -223,5 +286,8 @@ plot_colors_by_v <- function(tr.df, x_var, xlab=NULL) {
     abline(lm(sp_i.df$v_std ~ sp_i.df[[x_var]]), lty=2)
   }
 }
+
+
+
 
 
