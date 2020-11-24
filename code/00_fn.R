@@ -146,13 +146,14 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
   wkr.df <- rbind(do.call("rbind", fro_all), 
                      do.call("rbind", lat_all), 
                      do.call("rbind", dor_all)) %>%
+    filter(!is.na(Value)) %>%
     full_join(., col.wkr, by=c("TubeNo", "Worker")) %>%
     left_join(., ant_i, by="TubeNo") %>%
     group_by(SPECIESID) %>% mutate(n_clny=n_distinct(TubeNo)) %>% ungroup
   
   clny.df <- wkr.df %>% group_by(TubeNo, Trait) %>% 
-    summarise(mnValue=mean(Value),
-              sdValue=sd(Value)) %>%
+    summarise(mnValue=mean(Value, na.rm=T),
+              sdValue=sd(Value, na.rm=T)) %>%
     full_join(., col.clny, by=c("TubeNo")) %>%
     left_join(., ant_i, by="TubeNo") %>%
     group_by(SPECIESID) %>% mutate(n_clny=n_distinct(TubeNo)) %>% ungroup
