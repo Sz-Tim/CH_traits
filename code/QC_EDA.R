@@ -22,6 +22,8 @@ trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
 
 
 ant.ls <- load_ant_data(clean_spp=T)
+ant.ls$all$TubeNo <- str_remove(ant.ls$all$TubeNo, "\\.")
+
 ant.ls$all <- ant.ls$all %>% 
   mutate(SampleDate=lubridate::yday(SampleDate),
          GENUSID=str_split_fixed(SPECIESID, "_", 2)[,1]) %>%
