@@ -47,14 +47,17 @@ ant.ls$all <- ant.ls$all %>%
 trts <- load_traits(ant_i=ant.ls$all, msr_dir=msr_dir, col_dir=col_dir, 
                     na.thresh=0.05, lat_names=trait_names$lat,
                     fro_names=trait_names$fro, dor_names=trait_names$dor)
+trts$spp_rng <- trts$clny.wide %>% group_by(SPECIESID) %>% 
+  summarise(lo=min(mnt25), hi=max(mnt25), rng=hi-lo)
 
 
 
 # model details
-std <- F  # standardize (scale) within each species
+std <- T  # standardize (scale) within each species
 clny_min <- 3
+rng_thresh <- 500
 response_vars <- c("v", 
-                   #"HeadWidth", "HeadLength", 
+                   "HeadWidth", "HeadLength",
                    "HeadShape",
                    "DVE",
                    # "ScapeLength",
@@ -70,11 +73,11 @@ X_vars_mn <- c(#GDD="GDD0",
                # Twarm="TwarmQ",
                minTwarm="minTwarmest",
                # AP="AP",
-               Pwarm="PwarmQ",
+               # Pwarm="PwarmQ",
                # Pcold="PcoldQ",
                # NPP="npp",
                # TAR="TAR",
-               North="aspectN",
+               # North="aspectN",
                # CnpyM="CnpyMixed",
                # CnpyO="CnpyOpen",
                # Elev="mnt25",
@@ -83,11 +86,11 @@ X_vars_sd <- c(#GDD="GDD0",
                # Twarm="TwarmQ",
                minTwarm="minTwarmest",
                # AP="AP",
-               Pwarm="PwarmQ",
+               # Pwarm="PwarmQ",
                # Pcold="PcoldQ",
                # NPP="npp",
-               TAR="TAR",
-               North="aspectN",
+               # TAR="TAR",
+               # North="aspectN",
                # CnpyM="CnpyMixed",
                # CnpyO="CnpyOpen",
                # Elev="mnt25",
