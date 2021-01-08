@@ -252,6 +252,43 @@ prior_predictive_check <- function(d.ls, hyperpriors) {
 
 
 
+#' Summarise Stan output with mean, HDIs, n_eff, and Rhat
+#'
+#' @param out.stan stan object with posterior samples
+#' @param param parameter of interest
+#' @param creds vector of credible intervals
+#' @param varNames optional vector of variable names (e.g., for beta covariates)
+#' @return Tibble with mean, median, n_eff, Rhat, X_var (if provided), and HDI limits
+#' 
+summary_hdi <- function(out.stan, param, creds=c(0.5, 0.9, 0.95), varNames=NULL) {
+  library(rstan); library(tidyverse)
+  
+  out.df <- summary(out.stan, param)$summary %>%
+    as.data.frame %>% rename(median=`50%`) %>%
+    select(mean, median, n_eff, Rhat) 
+  if(!is.null(varNames)) {
+    out.df <- out.df %>% mutate(X_var=varNames)
+  }
+  
+  # par.post <- rstan::extract(out.stan, param)
+  par.post <- rstan::As.mcmc.list(out.stan, param)
+  out.df <- bind_cols(
+    out.df, 
+    map(creds, ~t(HDInterval::hdi(par.post[[1]], .x)) %>%
+          magrittr::set_colnames(
+            paste0("L", str_sub( c(0.5-.x/2, 0.5+.x/2), 3, -1) )) %>%
+          as_tibble) %>%
+      do.call('cbind', .)
+  ) 
+  
+  return(as_tibble(out.df))
+}
+
+
+
+
+
+
 
 
 
