@@ -223,8 +223,8 @@ prior_predictive_check <- function(d.ls, hyperpriors) {
                 z_b=matrix(rnorm(d.ls$P_mn*d.ls$S, 0, 1), d.ls$P_mn, d.ls$S),
                 L_A=rethinking::rlkjcorr(n=1, K=d.ls$P_sd, eta=1),
                 L_B=rethinking::rlkjcorr(n=1, K=d.ls$P_mn, eta=1)) %>%
-    list_modify(resid_clny_1=rnorm(d.ls$N_clny, 0, .$sigma_clny_1[d.ls$spp_id]),
-                resid_clny_2=rnorm(d.ls$N_clny, 0, .$sigma_clny_2[d.ls$spp_id]),
+    list_modify(#resid_clny_1=rnorm(d.ls$N_clny, 0, .$sigma_clny_1[d.ls$spp_id]),
+                #resid_clny_2=rnorm(d.ls$N_clny, 0, .$sigma_clny_2[d.ls$spp_id]),
                 A=(diag(.$sigma_A) %*% .$L_A) %*% .$z_A,
                 B=(diag(.$sigma_B) %*% .$L_B) %*% .$z_B) %>%
     list_modify(a=t(sapply(1:d.ls$P_sd, function(x) .$A[x,d.ls$tax_i[,2]] + 
@@ -238,8 +238,11 @@ prior_predictive_check <- function(d.ls, hyperpriors) {
                delta=map_dbl(1:d.ls$N_clny, 
                              ~d.ls$x_sd[.x,] %*% 
                                (priors$alpha + priors$a[,d.ls$spp_id[.x]]))) %>%
-    list_merge(y_bar=.$mu + priors$resid_clny_1,
-               d=exp(.$delta + priors$resid_clny_2)) %>%
+    # list_merge(y_bar=.$mu + priors$resid_clny_1,
+    #            d=exp(.$delta + priors$resid_clny_2)) %>%
+    list_merge(y_bar=rnorm(d.ls$N_clny, .$mu, priors$sigma_clny_1[d.ls$spp_id]),
+               d=truncnorm::rtruncnorm(d.ls$N_clny, 0, Inf,
+                                       exp(.$delta), priors$sigma_clny_2[d.ls$spp_id])) %>%
     list_merge(y=rnorm(d.ls$N_wkr, .$y_bar[d.ls$clny_id], .$d[d.ls$clny_id]))
   
   return(list(priors=priors, sims=sims))
