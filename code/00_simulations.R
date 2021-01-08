@@ -30,9 +30,8 @@ trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
 
 
 ant.ls <- load_ant_data(clean_spp=T)
-B_no_period <- grep("[^\\.]B", ant.ls$all$TubeNo)
-ant.ls$all$TubeNo[B_no_period] <- str_replace(grep("[^\\.]B", ant.ls$all$TubeNo, value=T), 
-                                              "B", ".B")
+ant.ls$all$TubeNo <- str_remove(ant.ls$all$TubeNo, "\\.")
+
 ant.ls$all <- ant.ls$all %>% 
   mutate(SampleDate=lubridate::yday(SampleDate),
          GENUSID=str_split_fixed(SPECIESID, "_", 2)[,1]) %>%
