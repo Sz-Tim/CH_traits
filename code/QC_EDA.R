@@ -97,6 +97,19 @@ ggplot(filter(trts$wkr.std, !is.na(Value)), aes(x=mnt25, y=Value)) +
   stat_smooth(method="lm", se=F, colour="black", linetype=2, size=0.5) +
   stat_quantile(quantiles=c(.1,.9), formula=y~x, colour="black", linetype=3) +
   facet_wrap(~Trait)
+ggplot(filter(trts$wkr.std, !is.na(Value)), aes(x=mnt25, y=Value)) + 
+  geom_point(alpha=0.25, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", se=F, colour="black", size=0.5) +
+  stat_smooth(method="lm", se=F, colour="black", linetype=2, size=0.3, 
+              aes(group=SPECIESID)) +
+  facet_grid(Trait~GENUSID, scales="free")
+ggplot(filter(trts$wkr.std, !is.na(Value)), aes(x=mnt25, y=Value)) + 
+  geom_point(alpha=0.25, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", se=F, colour="black", linetype=2, size=0.5) +
+  stat_quantile(quantiles=c(.1,.9), formula=y~x, colour="black", linetype=3) +
+  facet_grid(Trait~SPECIESID, scales="free")
 ggplot(filter(trts$wkr.df, !is.na(Value)), aes(x=mnt25, y=Value)) + 
   geom_point(aes(colour=GENUSID), alpha=0.25) + 
   scale_colour_brewer(palette=2, type="qual") +
@@ -113,13 +126,89 @@ ggplot(filter(trts$clny.df, !is.na(mnValue)), aes(x=mnt25, y=mnValue)) +
   stat_quantile(quantiles=c(.1,.9), formula=y~x, colour="red", linetype=2) +
   facet_wrap(~Trait)
 
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=WebersLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=HeadWidth)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=(HindLen+HindFemur)/WebersLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=ScapeLength/HeadLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=InterocularDistance/HeadWidth)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$wkr.wide, n_clny>2), 
+       aes(x=mnt25, y=MesosomaWidth/WebersLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=mnValue_WebersLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=log(sdValue_WebersLength))) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=mnValue_HeadWidth)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=log(sdValue_HeadWidth))) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=mnValue_HeadLength)) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+ggplot(filter(trts$clny.wide, n_clny>2), 
+       aes(x=mnt25, y=log(sdValue_HeadLength))) + 
+  geom_point(shape=1, aes(colour=GENUSID)) + 
+  scale_colour_brewer(palette=2, type="qual") +
+  stat_smooth(method="lm", colour="black", linetype=2, size=0.5) +
+  facet_wrap(~SPECIESID, scales="free")
+
 
 
 
 
 
 # colors
-plot_colors_by_v(filter(trts$wkr.df, !is.na(med_R)), "mnt25", "Elevation (m)")
+trts$wkr.df %>% filter(!is.na(med_R)) %>%
+  # filter(GENUSID %in% c("Lept", "Temn")) %>%
+  plot_colors_by_v("mnt25", "Elevation (m)")
 
 
 # traits across environmental variables
@@ -127,7 +216,7 @@ ggplot(trts$clny.std %>% filter(n_clny > 2), aes(GDD0, mnValue)) +
   facet_wrap(~Trait, scales="free", drop=T) +
   stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x, se=F, size=0.3) +
   stat_smooth(method="lm", formula=y~x, se=F, size=0.7, colour="red") 
-ggplot(trts$clny.std %>% filter(n_clny > 2), aes(AP, sdValue)) + 
+ggplot(trts$clny.std %>% filter(n_clny > 2), aes(AP, log(sdValue))) + 
   facet_wrap(~Trait, scales="free", drop=T) +
   stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x, se=F, size=0.3) +
   stat_smooth(method="lm", formula=y~x, se=F, size=0.7, colour="red") 
@@ -136,7 +225,7 @@ ggplot(trts$clny.std %>% filter(n_clny > 2), aes(AP, sdValue)) +
 
 
 # trait variability within colonies
-ggplot(trts$clny.df %>% filter(n_clny > 2), aes(mnt25, sdValue/mnValue)) + 
+ggplot(trts$clny.df %>% filter(n_clny > 2), aes(mnt25, log(sdValue))) + 
   facet_wrap(~Trait, scales="free") +
   # geom_point(alpha=0.1) +
   stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x, se=F, size=0.3) +
@@ -148,42 +237,42 @@ ggplot(trts$clny.df, aes(mnt25, sdValue/mnValue, group=SPECIESID)) +
 ggplot(trts$clny.wide, aes(mnt25, v_CV)) + geom_point() + 
   stat_smooth(method="lm", se=F, colour="gray30") + #facet_wrap(~SPECIESID, scales="free") + 
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray", size=.5) 
-ggplot(trts$clny.wide, aes(mnt25, v_var)) + geom_point()  + 
+ggplot(trts$clny.std, aes(mnt25, log(v_var))) + geom_point()  + 
   stat_smooth(method="lm", se=F, colour="gray30") +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray", size=.5) 
-ggplot(trts$clny.wide, aes(v, v_var)) + geom_point(alpha=0.8)  + 
+ggplot(trts$clny.std, aes(v, log(v_var))) + geom_point(alpha=0.8)  + 
   stat_smooth(method="lm", se=F, colour="gray30") +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray", size=.5) 
 
 
 
-ggplot(trts$clny.wide %>% filter(n_clny > 2), 
-       aes(mnt25, mnValue_WebersLength, group=SPECIESID)) + 
-  facet_wrap(~SPECIESID, scales="free") +
-  geom_point() +
-  stat_smooth(method="lm", se=F, linetype=2, size=0.5, colour="gray30") 
 
 
-
-ggplot(trts$wkr.wide, aes(SampleDate, v)) + geom_point(alpha=0.5) +
+trts$wkr.std %>% group_by(TubeNo, Worker) %>% 
+  summarise(across(everything(), first)) %>%
+  ggplot(aes(SampleDate, v)) + geom_point(alpha=0.5, shape=1) +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") +
   facet_wrap(~SPECIESID)
-ggplot(trts$clny.df, aes(SampleDate, v_var)) + geom_point()  + 
+ggplot(trts$clny.std, aes(SampleDate, log(v_var))) + geom_point()  + 
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") 
 
 ggplot(trts$wkr.wide, aes(SampleDate, WebersLength)) + geom_point(alpha=0.5) +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") +
-  facet_wrap(~SPECIESID)
+  facet_wrap(~SPECIESID, scales="free_y")
+
+ggplot(trts$wkr.wide, aes(SampleDate, HindLen/WebersLength)) + geom_point(alpha=0.5) +
+  stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") +
+  facet_wrap(~SPECIESID, scales="free_y")
 
 ggplot(trts$wkr.wide, aes(aspectN, v)) + geom_point(alpha=0.5) +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") +
-  facet_wrap(~SPECIESID)
-ggplot(trts$clny.df, aes(aspectN, v_var)) + geom_point()  + 
+  facet_wrap(~SPECIESID, scales="free_y")
+ggplot(trts$clny.df, aes(aspectN, log(v_var))) + geom_point()  + 
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") 
 
 
 ggplot(trts$wkr.wide, aes(WebersLength, v)) + geom_point() + 
-  stat_smooth(method="lm") + 
+  stat_smooth(aes(group=SPECIESID), method="lm", size=0.5, colour="gray30") + 
   facet_wrap(~SPECIESID, scales="free")
 
 ggplot(trts$wkr.std %>% filter(Trait=="WebersLength"), aes(Value, v)) +
@@ -271,12 +360,12 @@ loo::loo_compare(loo::loo(fit_RE), loo::loo(fit_FE))
 
 
 # Some PCA
-complete.df <- trts$wkr.wide[complete.cases(trts$wkr.wide[,c(16,32:45)]),]
-complete.df[,c(32:45)] <- complete.df[,c(32:45)]/complete.df$WebersLength
-pairs(complete.df[,c(16,32:45)], lower.panel=panel.smooth, cex=0.5)
+complete.df <- trts$wkr.wide[complete.cases(trts$wkr.wide[,c(16,34:40,42:47)]),]
+complete.df[,c(34:40,42:47)] <- complete.df[,c(34:40,42:47)]/complete.df$WebersLength
+pairs(complete.df[,c(16,34:40,42:47)], lower.panel=panel.smooth, cex=0.5)
 
 library(vegan)
-pca <- rda(complete.df[,c(16,32:45)])
+pca <- rda(complete.df[,c(16,34:40,42:47)])
 
 pdf("eda/00_PCA_Myrmica.pdf", width=8, height=8)
 {biplot(pca, type=c("text", "points"), cex=1.5)
@@ -287,12 +376,12 @@ legend("topleft", col=viridis::viridis_pal()(n_distinct(complete.df$GENUSID)),
 }
 dev.off()
 
-pca <- princomp(complete.df[,c(16,32:45)]) # 16 = v
-pc <- prcomp(complete.df[,c(16,32:45)])
+pca <- princomp(complete.df[,c(16,34:40,42:47)]) # 16 = v
+pc <- prcomp(complete.df[,c(16,34:40,42:47)])
 km_scree <- map(1:20, ~sum(kmeans(pc$x[,1:2], ., iter.max=1e3, nstart=25)$withinss))
 plot(1:length(km_scree), km_scree, type="b")
 
-km <- kmeans(pc$x[,1:2], 5, iter.max=1e4, nstart=50)
+km <- kmeans(pc$x[,1:2], 20, iter.max=1e4, nstart=50)
 complete.df$cluster <- km$cluster
 complete.df$PC1 <- pc$x[,1]
 complete.df$PC2 <- pc$x[,2]
@@ -370,3 +459,11 @@ full_join(trts$clny.wide %>% group_by(SPECIESID) %>%
          var_clny_div_spp=var_within_clny/var_within_spp) %>%
   summarise(mn=mean(var_clny_div_spp, na.rm=T))
 # ggplot(aes(x=var_clny_div_spp, y=SPECIESID)) + geom_point() + facet_wrap(~Trait)
+
+
+
+
+nora.spp <- read_csv("~/Documents/unil/teaching/2020_Khelidj/code/RE__DPCOA/Species_fil.csv")
+gen_tree <- ape::read.tree("~/Desktop/Formicidae_genus.nwk")
+gen_tree.nora <- ape::drop.tip(gen_tree, gen_tree$tip.label[-match(unique(nora.spp$Genus), gen_tree$tip.label, nomatch=0)])
+ape::cophenetic.phylo(gen_tree.nora)
