@@ -1,6 +1,6 @@
 
 library(tidyverse); library(readxl); library(googlesheets); library(rstan)
-options(mc.cores = parallel::detectCores()); rstan_options(auto_write = TRUE)
+options(mc.cores=parallel::detectCores()); rstan_options(auto_write=TRUE)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
                              panel.grid.major=element_line(colour="gray90",
                                                            size=0.25)))
