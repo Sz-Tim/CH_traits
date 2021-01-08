@@ -65,7 +65,7 @@ ch_sp$BurchillMoreau <- as.numeric(bm_ch)
 
 ## Seifert 2018
 seifert <- readxl::read_xlsx("data/lit/seifert2018/seifert.xlsx", 1) %>%
-  mutate(Binomial=paste(Genus, Species)) %>% 
+  mutate(Binomial=paste(Genus, Species))
 
 
 
