@@ -5,8 +5,16 @@
 # Session Data files
 .RData
 
-# Big data files
+# Folders
+background/
+eda/
 data/img/
+
+# temp files
+outline.html
+outline.pdf
+data/*_REMAINING.csv
+data/wkr_df_temp.csv
 
 # Example code in package build process
 *-Ex.R
