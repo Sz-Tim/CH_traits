@@ -115,10 +115,11 @@ wkr.df <- trts$wkr.wide %>%
          one_of(response_vars), one_of(X_vars_mn, X_vars_sd)) #%>%
   # mutate(across(one_of(X_vars_mn, X_vars_sd), ~c(scale(.))))
 if(std) {
-  wkr.df <- wkr.df %>% group_by(SPECIESID) %>%
-    mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
-  # wkr.df <- wkr.df %>% group_by(SPECIESID) %>%
-    # mutate_if(is.numeric, ~c(scale(.)))
+  wkr.df <- wkr.df %>% #group_by(SPECIESID) %>%
+    # mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
+    mutate(across(one_of(X_vars_mn, X_vars_sd), ~c(scale(.)))) %>%
+    group_by(SPECIESID) %>%
+    mutate(across(one_of(response_vars), ~c(scale(.)))) 
 } else {
   wkr.df <- wkr.df %>% 
     mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
@@ -130,6 +131,7 @@ if("CnpyOpen" %in% c(X_vars_mn, X_vars_sd)) wkr.df$CnpyOpen <- trts$wkr.wide$Cnp
 wkr.df <- wkr.df %>% 
   group_by(SPECIESID) %>% mutate(nColony=n_distinct(TubeNo)) %>% ungroup %>%
   filter(nColony >= clny_min) %>%
+  filter(SPECIESID %in% filter(trts$spp_rng, rng >= rng_thresh)$SPECIESID) %>%
   filter(GENUSID %in% genera_incl) %>%
   # filter(!is.na(CnpyOpen)) %>%
   arrange(SPECIESID, TubeNo) 
@@ -147,6 +149,9 @@ for(k in 1:length(response_vars)) {
     wkr.df_i <- wkr.df[-which(is.na(wkr.df[[Y_var]])),]
   } else {
     wkr.df_i <- wkr.df
+  }
+  if(any(is.na(wkr.df_i[c(X_vars_mn, X_vars_sd)]))) {
+    wkr.df_i <- wkr.df_i[-which(is.na(rowSums(wkr.df_i[c(X_vars_mn, X_vars_sd)]))),]
   }
   wkr.df_i <- wkr.df_i %>% 
     mutate(clny_id=as.numeric(factor(TubeNo, levels=unique(TubeNo))))
