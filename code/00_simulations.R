@@ -168,15 +168,20 @@ for(k in 1:length(response_vars)) {
                clny_id=wkr.df_i$clny_id,
                spp_id=clny.df_i$spp_id)
   
+  # sensitivity to wkr number
+  clny_id_alt <- unlist(map(1:d.ls$N_clny, ~rep(.x, sample(1:3, 1))))
+  d.ls$N_wkr <- length(clny_id_alt)
+  d.ls$clny_id <- clny_id_alt
+  
   for(s in 1:nSims) {
-    hyperpriors <- list(sigma_clny_1_global=truncnorm::rtruncnorm(1, 0, Inf, 3, 2),
-                        sigma_clny_2_global=truncnorm::rtruncnorm(1, 0, Inf, 5, 2),
-                        alpha=rnorm(d.ls$P_sd, 0, 0.5),
-                        beta=rnorm(d.ls$P_mn, 0, 0.5),
-                        sigma_A=abs(rnorm(d.ls$P_sd, 0, 0.1)),
-                        sigma_B=abs(rnorm(d.ls$P_mn, 0, 0.2)),
-                        sigma_a=abs(rnorm(d.ls$P_sd, 0, 0.1)),
-                        sigma_b=abs(rnorm(d.ls$P_mn, 0, 0.2)))
+    # hyperpriors <- list(sigma_clny_1_global=truncnorm::rtruncnorm(1, 0, Inf, 3, 2),
+    #                     sigma_clny_2_global=truncnorm::rtruncnorm(1, 0, Inf, 5, 2),
+    #                     alpha=rnorm(d.ls$P_sd, 0, 0.5),
+    #                     beta=rnorm(d.ls$P_mn, 0, 0.5),
+    #                     sigma_A=abs(rnorm(d.ls$P_sd, 0, 0.1)),
+    #                     sigma_B=abs(rnorm(d.ls$P_mn, 0, 0.2)),
+    #                     sigma_a=abs(rnorm(d.ls$P_sd, 0, 0.1)),
+    #                     sigma_b=abs(rnorm(d.ls$P_mn, 0, 0.2)))
     ppcheck <- prior_predictive_check(d.ls, hyperpriors)
     priors.ls[[s]] <- ppcheck$priors
     sim.ls[[s]] <- ppcheck$sims
@@ -204,14 +209,82 @@ for(k in 1:length(response_vars)) {
   par(mfrow=c(3,3))
   pwalk(list(a=sims, b=sims.rnk, c=names(sims)), 
         function(a, b, c) plot(density(a[which(between(b, lo, hi))]), main=c))
-  plot(exp(sims$delta[d_sample]), sims$d[d_sample], col=rgb(0,0,0,0.2))
+  plot(exp(sims$delta[d_sample]), sims$d[d_sample], col=rgb(0,0,0,0.2),
+       xlab=expression(e^delta), ylab=expression(d[sim]))
   abline(a=0,b=1)
-  plot(sims$mu[ybar_sample], sims$y_bar[ybar_sample], col=rgb(0,0,0,0.2))
+  plot(sims$mu[ybar_sample], sims$y_bar[ybar_sample], col=rgb(0,0,0,0.2),
+       xlab=expression(mu), ylab=expression(bar(y)[sim]))
   abline(a=0,b=1)
   plot(density(priors$sigma_clny_1[between(priors.rnk$sigma_clny_1, lo, hi)]), 
        main=paste("sigma_1: ", round(mean(priors$sigma_clny_1_global, 2))))
   plot(density(priors$sigma_clny_2[between(priors.rnk$sigma_clny_2, lo, hi)]), 
        main=paste("sigma_2: ", round(mean(priors$sigma_clny_2_global, 2))))
+  
+  
+  # circular simulation
+  stan_d <- d.ls %>% list_modify(y=sim.ls[[s]]$y)
+  out <- stan("code/mods/7_aRE_bRE.stan", data=stan_d, chains=3,
+              warmup=1500, iter=2000, control=list(adapt_delta=0.95))
+  
+  wkr_out <- tibble(clny_id=d.ls$clny_id,
+                    spp_id=d.ls$spp_id[clny_id],
+                    y_obs=stan_d$y)
+  clny_out <- wkr_out %>% group_by(spp_id, clny_id) %>%
+    summarise(y_bar_obs=mean(y_obs), 
+              d_obs=sd(y_obs)) %>% 
+    bind_cols(map(c("y_bar", "d", "mu", "delta_exp"), 
+                  ~summary_hdi(out, .x, 0.95) %>% 
+                    set_names(paste0(.x, "_", names(.)))))
+    
+  # clny_out.8_12 <- clny_out
+  # clny_out.1_4 <- clny_out
+  # clny_out.1_3 <- clny_out
+  
+  # clny_out <- clny_out.8_12
+  # clny_out <- clny_out.1_4
+  
+  ggplot(clny_out, aes(y_bar_obs, mu_mean, ymin=mu_L025, ymax=mu_L975)) + 
+    geom_abline() + geom_point() + geom_linerange()
+  ggplot(clny_out, aes(y_bar_obs, y_bar_mean, ymin=y_bar_L025, ymax=y_bar_L975)) + 
+    geom_abline() + geom_point() + geom_linerange()
+  ggplot(clny_out, aes(d_obs, delta_exp_mean, ymin=delta_exp_L025, ymax=delta_exp_L975)) + 
+    geom_abline() + geom_point() + geom_linerange() + facet_wrap(~spp_id)
+  ggplot(clny_out, aes(d_obs, d_mean, ymin=d_L025, ymax=d_L975)) + 
+    geom_abline() + geom_point() + geom_linerange() + facet_wrap(~spp_id)
+  
+  out_alpha <- summary_hdi(out, "alpha") %>%
+    mutate(true=hyperpriors$alpha)
+  out_beta <- summary_hdi(out, "beta") %>%
+    mutate(true=hyperpriors$beta)
+  
+  ggplot(out_alpha, aes(true, mean, ymin=L025, ymax=L975)) + 
+    geom_abline() + geom_point() + geom_linerange()
+  ggplot(out_beta, aes(true, mean, ymin=L025, ymax=L975)) + 
+    geom_abline() + geom_point() + geom_linerange()
+  
+  
+  
+  hyperpriors <- list(sigma_clny_1_global=summary(out, "sigma_clny_1_global")$summary[,1],
+                      sigma_clny_2_global=summary(out, "sigma_clny_2_global")$summary[,1],
+                      alpha=summary(out, "alpha")$summary[,1],
+                      beta=summary(out, "beta")$summary[,1],
+                      sigma_A=summary(out, "sigma_A")$summary[,1],
+                      sigma_B=summary(out, "sigma_B")$summary[,1],
+                      sigma_a=summary(out, "sigma_a")$summary[,1],
+                      sigma_b=summary(out, "sigma_b")$summary[,1])
+  ppcheck <- prior_predictive_check(d.ls, hyperpriors)
+  
+  sim.df <- tibble(clny_id=d.ls$clny_id,
+                   spp_id=d.ls$spp_id[clny_id],
+                   y_obs=stan_d$y,
+                   y=ppcheck$sims$y, 
+                   y_bar=ppcheck$sims$y_bar[clny_id],
+                   d=ppcheck$sims$d[clny_id],
+                   mu=ppcheck$sims$mu[clny_id],
+                   delta=ppcheck$sims$delta[clny_id])
+  
+  ggplot(sim.df, aes(x=y, y=y_obs)) + facet_wrap(~spp_id) + geom_abline() + geom_point()
+  ggplot(sim.df, aes(x=exp(delta), y=d)) + facet_wrap(~spp_id) + geom_abline() + geom_point()
   
   
   for(s in 1:nSims) {
