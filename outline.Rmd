@@ -1,0 +1,360 @@
+---
+title: 'Intra- and interspecific variation in Swiss ants'
+subtitle: 'Draft outline'
+author: 'Tim M. Szewczyk'
+output:
+  pdf_document: 
+    number_sections: yes
+    toc: yes
+    toc_depth: 1
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 1
+editor_options:
+  chunk_output_type: inline
+header-includes:
+  - \newcommand{\beginoutline}{\setcounter{table}{0}  \renewcommand{\thetable}{B.\arabic{table}} \setcounter{figure}{0} \renewcommand{\thefigure}{B.\arabic{figure}}}  \usepackage{longtable}  \usepackage{caption}
+---
+
+\beginoutline
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse); library(viridis)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank()))
+```
+
+
+
+\section{Introduction}
+In ants, traits vary among workers. Past work along environmental gradients has primarily focused on how traits vary among species or communities, relying on a single species-wide average value for each trait. This research has shown that ant communities tend to become darker in colder environments, particularly when UV-B is high. Darker species also tend to be larger. Further, rather than a shift of the whole size distribution, colder environments tend to filter out the smallest species. Similarly, wet environments tend to filter out larger species. 
+
+Some work has also explored variation within species across an elevational gradient, though with either limited taxonomic scope (i.e., focused on one species) or limitations on the applicability within a eusocial taxon due to logistical constraints (i.e., colonies were not adequately addressed). Nevertheless, this work has shown an increase in body size with elevation in one species. In contrast, the broader study found that intraspecific variation was rather small (relative to total variation across all species) and did not show much relationship with elevation. 
+
+However, as eusocial insects, variation within a species is not necessarily the correct focus. The success of a colony does not rely on what would be the success of each individual worker, but rather the collective success of all of the workers. Variation within colonies can be advantageous. In both desert-dwelling *Cataglyphis* and alpine-dwelling *Formica neorufibarbis*, larger workers forage during the middle of the day when temperatures are higher because they heat up more slowly. In the dimorphic *F. neorufibarbis*, the smaller workers were also darker, maximizing their ability to warm up quickly in the cold mornings. Thus, theory has been developed for why we might expect the mean trait value to change across environmental gradients, but in ants we might expect the variance within a colony to change as well.
+
+Different traits may have different combinations of pressures. Allen's rule, developed for endotherms (but let's be honest, it has probably been applied to ectotherms as well) posits that body shapes and limb proportions should vary with the climate, maximizing exposure in warm climates (i.e., longer limbs) and minimizing exposure in cold climates (i.e., shorter limbs). This is something to look into in ants. Limb length could also be affected by development time or conditions or something... Relative leg length does have an impact on foraging behaviors. Relative scape length would feel some of these same physiological pressures.
+
+The biogeographical 'rules' that could be relevant include:  
+- Bergmann's rule (larger bodies in colder places)  
+- Allen's rule (longer limbs in warmer places)  
+- Gloger's rule (darker color in humid places)
+
+Given the assemblage-level work using species-level averages, there's also the question of whether individual workers (or colonies) that are darker tend to be larger, and whether this corresponds with workers (or colonies) from colder environments. There is also a question of timing, where the size or color of workers could change with either the age of the individual worker (light just after eclosion, and possibly also fading with age?) or the date of eclosion (larvae developing at different points in the summer, fed different diets, experiencing different temperatures). For predictions based on date or season, I think I need to do more research.
+
+Combining everything, the predictions *could* be:  
+
+1. In **cold** environments:  
+  a. Size  
+    - colony means are larger  
+    - q05 is larger, q95 is unchanged (?)  
+    - colony sd is larger (but conflicts with previous)  
+  b. Color  
+    - colony means are darker  
+    - colony sd is larger  
+  c. Relative Leg Length  
+    - colony means are smaller  
+  d. Relative Scape Length  
+    - colony means are smaller  
+    
+2. In **wet** environments:  
+  a. Size  
+    - colony means are smaller
+    - q05 is unchanged, q95 is smaller (?)
+  b. Color  
+    - colony means are darker  
+    
+3. In **early** season:
+  a. Size  
+  b. Color  
+    - colony sd is larger at end of season (?)  
+
+4. In **highly variable** environments:  
+  a. Size  
+    - colony sd is larger
+  b. Color  
+    - colony sd is larger  
+
+5. Size and color:
+  a. Larger workers are darker  
+  b. Colonies with larger means have darker means  
+
+6. Predictions based on foraging habits?  
+  a. Species/genera that forage in open are more exposed
+  b. Species in forests are less exposed  
+  c. Variation has larger impact for larger taxa?  
+    - a 10% change in size is physiologically more consequential for larger sizes
+
+
+
+So in this paper, here are the possible topics to include:  
+- Basic description with pretty figures showing the distribution of traits among different species  
+- Variance partitioning across biological levels  
+- Correlations, PCA of traits within workers  
+- Hierarchical heteroskedastic regression model assessing drivers  
+
+
+Here's an online reference with some citations:
+https://jrnold.github.io/bayesian_notes/heteroskedasticity.html
+
+
+
+\section{Methods}
+\subsection{Model}
+\subsubsection{Overview}
+
+This model partitions variation in worker-level traits across multiple biological levels. First, workers are distributed within their colony. We assume that the traits of workers within each colony follow a normal distribution about a colony-level mean with a colony-level standard deviation. This is empirically not true for all species, species that are polymorphic or dimorphic. For workers in the minor caste or for workers of monomorphic species, however, this is a reasonable simplifying assumption. 
+
+The colony-level mean and standard deviation may vary with the environment. That's what we're testing. However, there are other factors beyond the available environmental variables that may influence these values, including stochasticity. Thus, we construct separate regressions for the mean and standard deviation, where each includes environmental variables and normally distributed random error. Lastly, we allow each species to respond differently to each environmental variable (i.e., random intercept *and* random slopes), but these responses are taxonomically clustered such that information is shared among species, with greater influence among species within the same genus. 
+
+
+\subsubsection{Intuitive formulation}
+The trait value for each worker $i$ is distributed normally such that:
+
+\begin{equation}
+  y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
+\end{equation}
+
+where $j$ is the colony index, $s$ is the species index, $\bar{y}_{j,s}$ is the mean within colony $j$, and $d_{j,s}$ is the standard deviation among workers in colony $j$. Each within-colony mean is distributed about predicted value $\mu_{j,s}$ based on the environmental conditions with species-specific standard deviation $\sigma_{1,s}$ such that:
+
+\begin{equation}
+  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1,s})
+\end{equation}
+
+\begin{equation}
+  \mu_{j,s} = X_j b_s
+\end{equation}
+
+where $X$ is a matrix of covariates and $b$ is a vector of species specific slopes. 
+
+Similarly, the within-colony variation is expected to be a function of the environment. Thus, the standard deviation within each colony $d_{j,s}$ is:
+
+\begin{equation}
+  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2,s})
+\end{equation}
+
+\begin{equation}
+  \delta_{j,s} = V_j a_s
+\end{equation}
+
+where $V$ is a matrix of covariates and $a_s$ is a vector of species specific slopes. This lognormal distribution is one thing I'm not sure about. It needs to be constrained to be positive though. 
+
+with species-level error $\epsilon_{1,j}$ and worker-level error $\epsilon_{1,i}$.
+
+Putting all of that together, we get:
+\begin{equation}
+  y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
+\end{equation}
+\begin{equation}
+  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1,s})
+\end{equation}
+\begin{equation}
+  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2,s})
+\end{equation}
+\begin{equation}
+  \mu_{j,s} = X_j b_s
+\end{equation}
+\begin{equation}
+  \delta_{j,s} = V_j a_s
+\end{equation}
+
+And so we assume that the heteroskedasticity of workers within colonies is at least partially predictable. There are hierarchical priors on $b$, $a$, $\sigma_1$, and $\sigma_2$, where each of these parameters are taxonomically clustered.
+
+\begin{equation}
+  b_{p,s} \sim Norm(B_{p,g}, \sigma_{b_p})
+\end{equation}
+\begin{equation}
+  B_{g} \sim mvNorm(\beta, \Sigma_B)
+\end{equation}
+
+\begin{equation}
+  a_{p,s} \sim Norm(A_{p,g}, \sigma_{a_p})
+\end{equation}
+\begin{equation}
+  A_{g} \sim mvNorm(\alpha, \Sigma_A)
+\end{equation}
+
+\begin{equation}
+  \sigma_{1,s} \sim Exponential(1)
+\end{equation}
+\begin{equation}
+  \sigma_{2,s} \sim Exponential(5)
+\end{equation}
+
+
+
+
+
+\subsubsection{Alternative formulation}
+The above equations could also be re-written in a different formulation that involves fewer equations, though I'm not sure it's more intuitive:
+
+\begin{equation}
+  y_{i,j,s} = X_j b_s + \sigma_{1,s}\epsilon_{1,j} + e^{V_j a_s + \sigma_{2,s}\epsilon_{2,j}}\epsilon_{1,i}  
+\end{equation}
+\begin{equation}
+  \epsilon_{1,j} \sim Norm(0, 1)
+\end{equation}
+\begin{equation}
+  \epsilon_{1,i} \sim Norm(0, 1)
+\end{equation}
+\begin{equation}
+  \epsilon_{2,j} \sim Norm(0, 1)
+\end{equation}
+
+with species-level errors $\epsilon_{1,j}$ and $\epsilon_{2,j}$, and worker-level error $\epsilon_{1,i}$.
+
+It might be clearer to break that up a bit:
+\begin{equation}
+  y_{i,j,s} = \bar{y}_{j,s} + d_{j,s}\epsilon_{1,i}  
+\end{equation}
+\begin{equation}
+  \bar{y}_{j,s} = X_j b_s + \sigma_{1,s}\epsilon_{1,j}
+\end{equation}
+\begin{equation}
+  log(d_{j,s}) = V_j a_s + \sigma_{2,s}\epsilon_{2,j}  
+\end{equation}
+\begin{equation}
+  \epsilon_{1,j} \sim Norm(0, 1)
+\end{equation}
+\begin{equation}
+  \epsilon_{1,i} \sim Norm(0, 1)
+\end{equation}
+\begin{equation}
+  \epsilon_{2,j} \sim Norm(0, 1)
+\end{equation}
+
+
+
+
+
+As it is, the predictions by worker are strongly tied to the genus, even for a trait like color that is rather variable. This might become less so as I add the additional colonies from the public inventory, but it also reflects something real I think. Looking at the variance partitioning across different traits, a lot of the variation occurs at the genus-level:
+
+![Variance partitioning of worker traits](eda/varpart_all.jpg)
+
+However, for a trait like color, we would expect that there is more clustering within species rather than within genera. Suitably broad priors on $\sigma_a$ should take care of that, I think.
+
+
+
+
+
+\subsubsection{Robust regression}
+An important issue to consider is whether the data suggest that the error distributions are normal. If there are large outliers, robust regression may be more suitable. In robust regression, errors follow a Student-t distribution which gives extra weight on the tails, effectively reducing the weight of outliers. There are three places where robust regression could be implemented: 1) the distribution of worker-level traits within colonies such that $y_{i,j,s} \sim Student(\bar{y}_{j,s}, \nu_{s}, d_{j,s})$; 2) the distribution of colony-level means about the predicted mean line such that $\bar{y}_{j,s} \sim Student(\mu_{j,s}, \nu_{1,s} \sigma_{1,s})$; 3) the distribution of colony-level standard deviation such that $log(d_{j,s}) \sim Student(\delta_{j,s}, \nu_{2,s} \sigma_{2,s})$.
+
+Each of these three decisions should be based on data. The decision for 2 and 3 are based off of residuals to the regression lines, and consequently the explanatory power of the covariates will influence the width of the error distribution. The distribution of workers within colonies is somewhat less dependent on the covariates, though it is indirectly through the estimation of the colony means.
+
+So these are the questions to answer regarding robust regression:
+1. Are traits distributed normally within colonies? 
+2. Are colony means distributed normally about mu?
+3. Are colony log(sd)'s distributed normally about delta?
+4. If the answer to any of these is plausibly no, then should df be constant or vary among species?
+
+\subsubsubsection{Are traits distributed normally within colonies?}
+There are only 4 workers per colony maximum, so this is somewhat challenging to answer from the data. I'll need to look into the literature too to see if I can find anything about the species here. Obviously the assumption of normality would not hold for species that are dimorphic or polymorphic, but that's one reason I'm not dealing with them.
+```{r}
+# example model run for v with uninformative priors and normally distributed errors
+robust.wkr <- read_csv("data/out_wkr_robust.csv")
+robust.clny <- read_csv("data/out_clny_robust.csv")
+normal.wkr <- read_csv("data/out_wkr_normal.csv")
+normal.clny <- read_csv("data/out_clny_normal.csv")
+
+nsim <- 1e3
+wkr.norm <- tibble(id=rep(1:nrow(robust.wkr), each=nsim),
+                   sim=rep(1:nsim, times=nrow(robust.wkr)),
+                   y_obs=rep(robust.wkr$v, each=nsim),
+                   y_bar_obs=rep(robust.clny$v[robust.wkr$clny_id], each=nsim),
+                   y_bar_N=rep(normal.wkr$y_bar, each=nsim),
+                   y_bar_t=rep(robust.wkr$y_bar, each=nsim),
+                   d_obs=rep(robust.clny$v_sd[robust.wkr$clny_id], each=nsim),
+                   d_N=rep(normal.wkr$d, each=nsim),
+                   d_t=rep(robust.wkr$d, each=nsim),
+                   y_sim_N_obs=rnorm(nrow(robust.wkr)*nsim, y_bar_obs, d_obs),
+                   y_sim_N=rnorm(nrow(normal.wkr)*nsim, y_bar_N, d_N),
+                   y_sim_t=brms::rstudent_t(nrow(robust.wkr)*nsim, 9.12, y_bar_t, d_t),
+                   ll_obs_N=dnorm(y_sim_N_obs, y_bar_obs, d_obs, log=T), 
+                   ll_sim_N=dnorm(y_sim_N, y_bar_N, d_N, log=T), 
+                   ll_sim_t=brms::dstudent_t(y_sim_t, 9.12, y_bar_t, d_t, log=T))
+# clny.norm <- tibble(obs_mn=rep(out.clny$v, each=nsim),
+#                     obs_sd=rep(out.clny$v_sd, each=nsim),
+#                     y_bar=rep(out.clny$y_bar, each=nsim),
+#                     d=rep(out.clny$d, each=nsim),
+#                     y_sim_obs=rnorm(nrow(out.clny)*nsim, obs_mn, obs_sd),
+#                     y_sim_fit=rnorm(nrow(out.clny)*nsim, y_bar, d))
+
+ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_N_obs)) + geom_point(alpha=0.1, size=0.5) +
+  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
+  labs(x=expression(bar(y)[obs]), y="y", 
+       title="Observed worker colour vs. normally distributed colour") + 
+  ylim(-3, 4) + xlim(-3, 4)
+ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_N)) + geom_point(alpha=0.1, size=0.5) +
+  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
+  labs(x=expression(bar(y)[obs]), y="y", 
+       title="Observed worker colour vs. normally distributed colour") + 
+  ylim(-3, 4) + xlim(-3, 4)
+ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_t)) + geom_point(alpha=0.1, size=0.5) +
+  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
+  labs(x=expression(bar(y)[obs]), y="y", 
+       title="Observed worker colour vs. t-distributed colour") + 
+  ylim(-3, 4) + xlim(-3, 4)
+
+
+```
+
+So there seem to be a decent number of points that are toward the tails of the simulated normal distributions, and the normal distributions seem overly broad to capture those outliers. That supports using a Student-t distribution for the distribution of workers within colonies.
+
+\subsubsubsection{Are colony means distributed normally about mu?}
+
+\subsubsubsection{Are log(colony sd)'s distributed normally about delta?}
+
+
+
+
+
+
+
+
+
+\section{Background}
+\subsection{Within-colony variation}
+We expect that, on average, the variation within each colony will be underestimated. With only four workers from each colony, the sample size is quite small. This biases the standard deviation of the sample downward. For example, say we have a large colony with a trait that follows a standard normal distribution. We can take many samples of 4 workers and calculate the standard deviation of each sample:
+```{r}
+sd_true <- 0.1
+wkr_samples <- map_dbl(1:1e5, ~sd(rnorm(4, 0, sd_true)))
+par(mfrow=c(1,2))
+plot(density(wkr_samples), main="Simulated sd for samples of 4 workers", 
+     xlab="Sample sd")
+abline(v=sd_true, col="red")
+plot((wkr_samples - sd_true), main="Residuals", col=rgb(0,0,0,0.05),
+     xlab="Sample", ylab=expression(s-sigma))
+abline(h=0, col="red")
+
+# Proportion of samples underestimating true sd
+sum(wkr_samples < sd_true)/length(wkr_samples)
+```
+
+
+Thus, we should expect that, on average, the latent predicted within-colony standard deviation $d$ is larger than the standard deviation of the four measurements. More specifically, it should be something like 60% that underestimate it. This is a function of the sample size, rather than the standard deviation, at least assuming that the observations are, in fact, drawn from a normal distribution.
+```{r message=FALSE}
+sim.df <- expand.grid(N=c(2,3,4,10), 
+                      sd_true=seq(0.01, 2, length.out=6), 
+                      sim=1:1e4) %>%
+  pmap_dfr(., function(N, sd_true, sim) tibble(N=N, 
+                                               sd_true=sd_true, 
+                                               sd_sample=sd(rnorm(N, 0, sd_true)))) %>%
+  mutate(N=as.factor(N))
+ggplot(sim.df, aes(sd_sample, colour=N)) + 
+  geom_vline(data=summarise(group_by(sim.df, N, sd_true), 
+                            N=first(N), sd_true=first(sd_true)), 
+             aes(xintercept=sd_true), lty=3) +
+  geom_density() + 
+  scale_colour_viridis_d(end=0.8) + facet_wrap(~sd_true, scales="free")
+
+# Proportion of samples underestimating true sd
+sim.df %>% group_by(N, sd_true) %>%
+  summarise(pr_under=sum(sd_sample < sd_true)/n()) %>%
+  ggplot(aes(sd_true, pr_under, colour=N)) + geom_line() +
+  scale_colour_viridis_d(end=0.8)
+```
+
+So this means we would expect that the residuals between $sd(y_{1-4,j,s})$ and $d_{j,s}$ should be biased toward $d_{j,s}$ being larger (i.e., negative). In the current formulation with an approximate run, this is true, with $sd(y_{1-4,j,s}) < d_{j,s}$ for about 67% of the colonies. This is maybe a bit more biased toward predicting a larger standard deviation, but I think is not too bad, considering that not all colonies have four workers (mean: 3.88; 7 with 1 worker, 2 with 2 workers, 3 with 6 workers, and 239 with 4 workers). 
+
+
