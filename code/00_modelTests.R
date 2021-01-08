@@ -53,7 +53,7 @@ trts$spp_rng <- trts$clny.wide %>% group_by(SPECIESID) %>%
 
 
 # model details
-std <- T  # standardize (scale) within each species
+std <- F  # standardize (scale) within each species
 clny_min <- 3
 rng_thresh <- 500
 response_vars <- c("v", 
@@ -593,7 +593,73 @@ walk(resid_d, print)
 
 
 
+p1.sp <- p2.sp <- p3.sp <- vector("list", n_distinct(wkr.df_i$SPECIESID))
+a12.sp <- a13.sp <- a23.sp <- vector("list", n_distinct(wkr.df_i$SPECIESID))
+b12.sp <- b13.sp <- b23.sp <- vector("list", n_distinct(wkr.df_i$SPECIESID))
+for(i in 1:n_distinct(wkr.df_i$SPECIESID)) {
+  p1.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[1,", "b[1,"), i, "]"))
+  p2.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[2,", "b[2,"), i, "]"))
+  p3.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[3,", "b[3,"), i, "]"))
+  
+  a12.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[1,", "a[2,"), i, "]"))
+  a13.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[1,", "a[3,"), i, "]"))
+  a23.sp[[i]] <- stan_scat(out[[3]], paste0(c("a[2,", "a[3,"), i, "]"))
+  
+  b12.sp[[i]] <- stan_scat(out[[3]], paste0(c("b[1,", "b[2,"), i, "]"))
+  b13.sp[[i]] <- stan_scat(out[[3]], paste0(c("b[1,", "b[3,"), i, "]"))
+  b23.sp[[i]] <- stan_scat(out[[3]], paste0(c("b[2,", "b[3,"), i, "]"))
+}
+
+ggpubr::ggarrange(plotlist=p1.sp)
+ggpubr::ggarrange(plotlist=p2.sp)
+ggpubr::ggarrange(plotlist=p3.sp)
+
+ggpubr::ggarrange(plotlist=a12.sp)
+ggpubr::ggarrange(plotlist=a13.sp)
+ggpubr::ggarrange(plotlist=a23.sp)
+
+ggpubr::ggarrange(plotlist=b12.sp)
+ggpubr::ggarrange(plotlist=b13.sp)
+ggpubr::ggarrange(plotlist=b23.sp)
+
+
+
 wkr.df_i %>% mutate(Cnpy=case_when(CnpyOpen==1 ~ "Open",
                                    CnpyMixed==1 ~ "Mixed",
                                    CnpyOpen==0 & CnpyMixed==0 ~ "Closed")) %>%
   ggplot(aes(v, colour=Cnpy)) + geom_density() + facet_wrap(~SPECIESID)
+
+
+
+
+
+spp.tb <- bind_rows(
+  as_tibble(summary_hdi(out[["clny_est"]], "delta_exp")) %>% 
+    bind_cols(out.clny %>% group_by(SPECIESID) %>% 
+                summarise(obs=mean(RelLegHind_sd, na.rm=T))) %>%
+    mutate(par="delta_exp"),
+  as_tibble(summary_hdi(out[["clny_est"]], "mu")) %>% 
+    bind_cols(out.clny %>% group_by(SPECIESID) %>% 
+                summarise(obs=mean(RelLegHind, na.rm=T))) %>%
+    mutate(par="mu")
+  ) 
+
+spp.tb %>% filter(par=="mu") %>%
+  ggplot(aes(x=obs, y=median, ymin=L05, ymax=L95)) + 
+  geom_abline() +
+  geom_pointrange()
+spp.tb %>% filter(par=="delta_exp") %>%
+  ggplot(aes(x=obs, y=median, ymin=L05, ymax=L95)) + 
+  geom_abline() +
+  geom_pointrange()
+
+ggplot(out.clny, aes(RelLegHind, y_bar_median, ymin=y_bar_L05, ymax=y_bar_L95)) + 
+  geom_abline() +
+  geom_linerange(size=0.2) + geom_point(shape=1, size=0.5)
+
+ggplot(out.clny, aes(log(RelLegHind_sd), d_log_median, ymin=d_log_L05, ymax=d_log_L95)) + 
+  geom_abline() +
+  geom_linerange(size=0.2) + geom_point(shape=1, size=0.5)
+
+
+
