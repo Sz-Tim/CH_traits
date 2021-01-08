@@ -5,3 +5,18 @@ Lasi.flav: 0888: bag 100
 
 # Need to image: 
 Lasi.ful: 1848, all dorsal
+
+
+
+# Relative proportions are weird:
+Leg length --
+Temn_nyla 9993116 (hind leg too long)
+Lasi_flav 9991324 (hind leg too short)
+Lasi_flav 9991578 (hind leg too short)
+
+Eye position --
+Tetr_caes 9990507 (IO < HW)
+Lasi_plat 9990176 (IO large or HW small)
+Lasi_nige 9990422 (IO large or HW small)
+Lasi_nige 9991673 (IO large or HW small)
+Lasi_fuli 9991915 (IO large or HW small)
