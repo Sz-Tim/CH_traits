@@ -3,23 +3,33 @@ title: 'Intra- and interspecific variation in Swiss ants'
 subtitle: 'Draft outline'
 author: 'Tim M. Szewczyk'
 output:
-  pdf_document: 
-    number_sections: yes
-    toc: yes
-    toc_depth: 1
   html_document:
-    number_sections: yes
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
     toc: yes
-    toc_depth: 1
-editor_options:
-  chunk_output_type: inline
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
 header-includes:
   - \newcommand{\beginoutline}{\setcounter{table}{0}  \renewcommand{\thetable}{B.\arabic{table}} \setcounter{figure}{0} \renewcommand{\thefigure}{B.\arabic{figure}}}  \usepackage{longtable}  \usepackage{caption}
 ---
 
 \beginoutline
 
-```{r message=FALSE, warning=FALSE}
+```{r setup, echo=F}
+# set directory for knitr as main project directory
+knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
 library(tidyverse); library(viridis)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank()))
 ```
