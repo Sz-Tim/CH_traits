@@ -19,4 +19,6 @@ This will be updated as the analyses progress and as I get organized.
 
 ## Other Opération Fourmis repositories  
 
-- [Citizen science EDA](https://sz-tim.github.io/5_citsci/)
+- [Citizen science EDA](https://sz-tim.github.io/5_citsci/): Exploratory data analysis focused on the samples collected in the citizen science component. Questions about differences in the ant species found among habitat and land uses, as well as citizen science methodology.  
+- [Diversity, richness, and abundance](https://github.com/Sz-Tim/CH_diversity): Hierarchical Bayesian Poisson Point Process model that integrates the structured abundances and unstructured presence-only data to predict local and regional communities across the canton.  
+- [General EDA and functions](https://github.com/Sz-Tim/opfo): Base repository for Opération Fourmis, including general EDA, QC/QA, and functions used in the other repositories.  
