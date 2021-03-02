@@ -17,3 +17,6 @@ This will be updated as the analyses progress and as I get organized.
 
 
 
+## Other Opération Fourmis repositories  
+
+- [Citizen science EDA](https://sz-tim.github.io/5_citsci/)
