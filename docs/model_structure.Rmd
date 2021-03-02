@@ -1,0 +1,305 @@
+---
+title: "Intra- and interspecific variation in Swiss ants"
+subtitle: "Model structure"
+author: "Tim Szewczyk"
+output:
+  html_document:
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Overview  
+This notebook explores some of the different options and considerations regarding the model structure. Generally, the model takes worker-level traits as data, and predicts the mean and standard deviation for each colony of each species, with environmental effects estimated for both of those quantities. 
+
+
+```{r setup, echo=F}
+# set directory for knitr as main project directory
+knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
+library(tidyverse); library(readxl); library(sf); library(rstan)
+options(mc.cores=parallel::detectCores()); rstan_options(auto_write=TRUE)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+
+source("code/00_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
+lc_i <- readxl::read_xlsx("../1_opfo/data/landcover_id.xlsx", 1) %>%
+  mutate(lcNum=as.numeric(LC_ID))
+
+gis_dir <- "../2_gis/data/VD_21781/"
+rast_end <- "_VD_21781.tif"
+msr_dir <- "data/img/"
+col_dir <- "data/img/"
+
+
+trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
+                    fro=c("HeadLength", "HeadWidth", 
+                          "InterocularDistance", "ScapeLength"),
+                    dor=c("MesosomaWidth", "MesosomaLength", 
+                          "HindFemur", "MidFemur"))
+trts <- readRDS("data/trts.rds")
+```
+
+```{r setup_params}
+clny_min <- 3
+rng_thresh <- 300
+response_vars <- c("v", 
+                   "HeadWidth", 
+                   "HeadLength",
+                   "HeadShape",
+                   "DVE",
+                   "WebersLength", 
+                   "PronotExp",
+                   "ScapeProp",
+                   "RelLegHind")
+X_vars_mn <- c(minTwarm="minTwarmest",
+               Pwarm="PwarmQ",
+               Pcold="PcoldQ",
+               NPP="npp",
+               North="aspectN",
+               Day="SampleDate") 
+X_vars_sd <- c(minTwarm="minTwarmest",
+               Pwarm="PwarmQ",
+               Pcold="PcoldQ",
+               NPP="npp",
+               TAR="TAR",
+               Day="SampleDate") 
+genera_incl <- c("Myrm", 
+                 "Mani",
+                 "Lasi",
+                 "Temn",
+                 "Tetr",
+                 "Lept",
+                 "Apha"
+                 )
+```
+
+
+
+
+
+----------  
+
+
+
+
+# Standardization  
+
+Colony-level trait distributions are modelled as a function of the environment along the elevational gradient. It is desirable to standardize the response and covariate values for both practical reasons (better model behaviour) and ecological reasons (similar to analyzing coefficients of variation). A basic question is thus how to standardize. 
+
+For many traits, we might expect that the standard deviation scales with the mean. For example, larger species will have larger standard deviations in size. 
+
+```{r webers_mn_sd, echo=F, message=F, warning=F, fig.height=3.5}
+a <- trts$wkr.wide %>% group_by(SPECIESID) %>%
+  summarise(mn_Webers=mean(WebersLength), sd_Webers=sd(WebersLength)) %>%
+  ggplot(aes(mn_Webers, sd_Webers)) + 
+  geom_point() + stat_smooth(method="lm") +
+  ylim(0, 0.25) + 
+  labs(x="Webers Length (mean)", y="Webers Length (sd)", title="Species")
+b <- ggplot(trts$clny.wide, aes(mnValue_WebersLength, sdValue_WebersLength)) + 
+  geom_point(aes(colour=SPECIESID)) + stat_smooth(method="lm") +
+  scale_colour_viridis_d() + theme(legend.position="none") + 
+  ylim(0, 0.25) + 
+  labs(x="Webers Length (mean)", y=" ", title="Colonies")
+ggpubr::ggarrange(plotlist=list(a,b), nrow=1)
+```
+
+There are three options for standardizing:  
+
+1. Standarize across the full dataset for covariates and for traits  
+    - One unit change in covariate represents change across full covariate space  
+    - One unit change in trait represents change across full trait space  
+    - Slopes: effect of absolute covariate on absolute trait  
+    - Expect variation in scale of response among species, since some species occupy a larger proportion of the trait space  
+    - Species with small trait values are less likely to show detectable trends  
+2. Standardize within each species for covariates and for traits  
+    - One unit change in covariate represents change *within the species' covariate space*  
+    - One unit change in trait represents change *within the species' trait space*  
+    - Slopes: effect of relative covariate on relative trait  
+    - Covariate space and trait space is translated to each species  
+3. Standardize across the full dataset for covariates and within each species for traits  
+    - One unit change in covariate represents change across full covariate space  
+    - One unit change in trait represents change *within the species' trait space*  
+    - Slopes: effect of absolute covariate on relative trait  
+    - Similar to analyzing effect of 1ºC change in temperature on trait CV  
+
+I think there are plausible arguments for all three. 
+
+**Method 1** lets us investigate the effect of an absolute change in environment on an absolute change in traits. A 1ºC increase in temperature translates to a 5$\mu m$ decrease in mean worker body size on average, across all species. Species' slopes can fluctuate, and genus-level effects could be informative given the clustering of many traits by genus, particularly for the intercepts. 
+
+**Method 2** assumes that species with narrower environmental spaces are more sensitive to changes in the environment. Within the range of temperatures each species experiences, a shift from the minimum to the 25th percentile equates to a shift from the maximum body size to the 50th percentile, on average across species. Everything is a shift within the relative space of a species. 
+
+**Method 3** uses aspects of both, assuming that species experiencing a broader range of environmental conditions will show larger changes in traits. A 1ºC increase in temperature translates to a shift of 25% within the species' trait space. If a species spans a smaller temperature range, we expect a smaller change in its traits, but the traits are still measured relative to the species. 
+
+To illustrate this graphically:  
+
+```{r scale_methods, echo=F, warning=F, message=F, fig.height=7}
+# Raw
+p0 <- ggplot(trts$wkr.wide, aes(minTwarmest/10, WebersLength)) + 
+  geom_point(shape=1, alpha=0.5) + 
+  stat_smooth(aes(group=SPECIESID), se=F, method="lm", 
+              size=0.25, colour="blue3") +
+  stat_smooth(se=F, method="lm", size=1, colour="red3") + 
+  labs(x="", y="Webers Length (mm)", title="Raw values")
+
+# Method 1
+p1 <- trts$wkr.wide %>% 
+  mutate(minTwarmest=c(scale(minTwarmest)), 
+         WebersLength=c(scale(WebersLength))) %>%
+  ggplot(aes(minTwarmest, WebersLength)) + 
+  geom_point(shape=1, alpha=0.5) + 
+  stat_smooth(aes(group=SPECIESID), se=F, method="lm", 
+              size=0.25, colour="blue3") +
+  stat_smooth(se=F, method="lm", size=1, colour="red3") + 
+  labs(x="", y="", title="Method 1")
+
+# Method 2
+p2 <- trts$wkr.wide %>%
+  group_by(SPECIESID) %>%
+  mutate(minTwarmest=c(scale(minTwarmest)),
+         WebersLength=c(scale(WebersLength))) %>%
+  ggplot(aes(minTwarmest, WebersLength)) + 
+  geom_point(shape=1, alpha=0.5) + 
+  stat_smooth(aes(group=SPECIESID), se=F, method="lm", 
+              size=0.25, colour="blue3") +
+  stat_smooth(se=F, method="lm", size=1, colour="red3") + 
+  labs(x=expression(T[min]~warmest~month), y="Webers Length", 
+       title="Method 2")
+
+# Method 3
+p3 <- trts$wkr.wide %>% #group_by(SPECIESID) %>%
+  # mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
+  mutate(minTwarmest=c(scale(minTwarmest))) %>%
+  group_by(SPECIESID) %>%
+  mutate(WebersLength=c(scale(WebersLength))) %>%
+  ggplot(aes(minTwarmest, WebersLength)) + 
+  geom_point(shape=1, alpha=0.5) + 
+  stat_smooth(aes(group=SPECIESID), se=F, method="lm", 
+              size=0.25, colour="blue3") +
+  stat_smooth(se=F, method="lm", size=1, colour="red3") + 
+  labs(x=expression(T[min]~warmest~month), y="", title="Method 3")
+
+ggpubr::ggarrange(plotlist=list(p0, p1, p2, p3), nrow=2, ncol=2)
+```
+
+
+With Methods 2 or 3, species-level slopes should be more identifiable since the trait range is standardized to mean=0 and sd=1. With a hierarchical structuring of the slopes, the overall effect $\beta$ of the environmental variable is determined by the species-level slopes $b$, such that $b_s ~ Normal(\beta, \sigma_b)$. These could be clustered taxonomically or phylogenetically, or without any structure. Without structure, $\beta$ is effectively the mean of the slopes of the blue lines above. With structure, it's the taxonomically- or phylogenetically-weighted mean.
+
+Similarly, Method 2 should lead to even greater identifiability since both the covariate-space and the trait-space are standardized within each species, but the interpretation is a bit strange, since it relies essentially on traits being more sensitive to the environment for species with narrower environmental ranges. The overall effect $\beta$ would represent the average change in a species' trait-space given a step in the species' environment-space. Alternatively, species with narrow environmental ranges may simply show no relationship to the environment. This should also be the case with Method 3. If I were looking at 1-3 species separately rather than in an aggregated framework, Method 2 is what I would do. 
+
+We do indeed see that species with larger environmental ranges tend to have more variable workers *and* more variable colonies, whether we use the absolute standard deviation or the CV, using elevational range as a proxy:  
+
+```{r weber_v_spp_rng, echo=F, message=F, warning=F, fig.height=7}
+a <- trts$wkr.wide %>% group_by(SPECIESID) %>%
+  summarise(mn_Webers=mean(WebersLength), sd_Webers=sd(WebersLength)) %>%
+  left_join(., trts$spp_rng, by="SPECIESID") %>%
+  ggplot(aes(rng, sd_Webers)) + 
+  geom_point() + stat_smooth(method="lm") +
+  labs(x="Elevational range (m)", y="Webers Length sd", title="Standard deviation")
+b <- trts$wkr.wide %>% group_by(SPECIESID) %>%
+  summarise(mn_Webers=mean(WebersLength), sd_Webers=sd(WebersLength)) %>%
+  left_join(., trts$spp_rng, by="SPECIESID") %>%
+  ggplot(aes(rng, sd_Webers/mn_Webers)) + 
+  geom_point() + stat_smooth(method="lm") +
+  labs(x="Elevational range (m)", y="Webers Length CV", title="CV")
+c <- trts$clny.wide %>% group_by(SPECIESID) %>%
+  summarise(mn_Webers=mean(mnValue_WebersLength), 
+            sd_Webers=sd(mnValue_WebersLength)) %>%
+  left_join(., trts$spp_rng, by="SPECIESID") %>%
+  ggplot(aes(rng, sd_Webers)) + 
+  geom_point() + stat_smooth(method="lm") +
+  labs(x="Elevational range (m)", y="Webers Length (sd among colony means)",
+       title="Colonies")
+d <- trts$clny.wide %>% group_by(SPECIESID) %>%
+  summarise(mn_Webers=mean(mnValue_WebersLength), 
+            sd_Webers=sd(mnValue_WebersLength)) %>%
+  left_join(., trts$spp_rng, by="SPECIESID") %>%
+  ggplot(aes(rng, sd_Webers/mn_Webers)) + 
+  geom_point() + stat_smooth(method="lm") +
+  labs(x="Elevational range (m)", y="Webers Length (CV among colony means)",
+       title="Colonies")
+ggpubr::ggarrange(plotlist=list(a, b, c, d), nrow=2, ncol=2)
+```
+
+So, I think Method 2 or Method 3 would be better than Method 1. 
+
+
+
+
+
+----------  
+
+
+
+
+# Genus-level effects  
+
+Text.
+```{r}
+
+```
+
+
+
+
+----------  
+
+
+
+
+# Colony-to-Predicted $\sigma$  
+
+Text.
+```{r}
+
+```
+
+
+
+
+----------  
+
+
+
+
+# Robust worker distribution  
+
+Text.
+```{r}
+
+```
+
+
+
+
+----------  
+
+
+
+
+# Fixed vs. random effects  
+
+Text.
+```{r}
+
+```
+
+
+
+

@@ -13,6 +13,7 @@ This repository analyzes patterns of variation in morphological traits for ants 
 This will be updated as the analyses progress and as I get organized.  
 
 - [Project outline](outline.html)  
+- [Model structure considerations](model_structure.html)  
 
 
 
