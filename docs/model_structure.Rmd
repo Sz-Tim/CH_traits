@@ -47,12 +47,22 @@ rast_end <- "_VD_21781.tif"
 msr_dir <- "data/img/"
 col_dir <- "data/img/"
 
+trait_match <- data.frame(orig=c("v", "HeadLength", "HeadWidth", 
+                                 "InterocularDistance", "DVE",
+                                 "ScapeLength", "WebersLength",
+                                 "HindTibia", "MidTibia", "MesosomaWidth",
+                                 "MesosomaLength", "HindFemur", "MidFemur",
+                                 "MidLen", "HindLen", "MesoSA", 
+                                 "HeadShape", "PronotExp", "ScapeProp"),
+                          full=c("Color (lightness)", "Head Length", "Head Width",
+                                 "Interocular Dist. (rel)", "Dorsoventral Eye Pos.",
+                                 "Scape Length", "Webers Length",
+                                 "Hind Tibia", "Mid Tibia", "Pronotum Width",
+                                 "Mesosoma Length", "Hind Femur", "Mid Femur",
+                                 "Rel. Leg Length (mid)", "Rel. Leg Length (hind)", 
+                                 "Mesosoma SA", "Head Shape",
+                                 "Pronotal Expansion", "Scape Proportion"))
 
-trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
-                    fro=c("HeadLength", "HeadWidth", 
-                          "InterocularDistance", "ScapeLength"),
-                    dor=c("MesosomaWidth", "MesosomaLength", 
-                          "HindFemur", "MidFemur"))
 trts <- readRDS("data/trts.rds")
 ```
 
@@ -101,6 +111,8 @@ genera_incl <- c("Myrm",
 
 # Standardization  
 
+## Issue overview  
+
 Colony-level trait distributions are modelled as a function of the environment along the elevational gradient. It is desirable to standardize the response and covariate values for both practical reasons (better model behaviour) and ecological reasons (similar to analyzing coefficients of variation). A basic question is thus how to standardize. 
 
 For many traits, we might expect that the standard deviation scales with the mean. For example, larger species will have larger standard deviations in size. 
@@ -119,6 +131,9 @@ b <- ggplot(trts$clny.wide, aes(mnValue_WebersLength, sdValue_WebersLength)) +
   labs(x="Webers Length (mean)", y=" ", title="Colonies")
 ggpubr::ggarrange(plotlist=list(a,b), nrow=1)
 ```
+
+
+## Standardization options  
 
 There are three options for standardizing:  
 
@@ -199,7 +214,9 @@ ggpubr::ggarrange(plotlist=list(p0, p1, p2, p3), nrow=2, ncol=2)
 ```
 
 
-With Methods 2 or 3, species-level slopes should be more identifiable since the trait range is standardized to mean=0 and sd=1. With a hierarchical structuring of the slopes, the overall effect $\beta$ of the environmental variable is determined by the species-level slopes $b$, such that $b_s ~ Normal(\beta, \sigma_b)$. These could be clustered taxonomically or phylogenetically, or without any structure. Without structure, $\beta$ is effectively the mean of the slopes of the blue lines above. With structure, it's the taxonomically- or phylogenetically-weighted mean.
+## Comparison  
+
+With Methods 2 or 3, species-level slopes should be more identifiable since the trait range is standardized to mean=0 and sd=1. With a hierarchical structuring of the slopes, the overall effect $\beta$ of the environmental variable is determined by the species-level slopes $b$, such that $b_s \sim Normal(\beta, \sigma_b)$. These could be clustered taxonomically or phylogenetically, or without any structure. Without structure, $\beta$ is effectively the mean of the slopes of the blue lines above. With structure, it's the taxonomically- or phylogenetically-weighted mean.
 
 Similarly, Method 2 should lead to even greater identifiability since both the covariate-space and the trait-space are standardized within each species, but the interpretation is a bit strange, since it relies essentially on traits being more sensitive to the environment for species with narrower environmental ranges. The overall effect $\beta$ would represent the average change in a species' trait-space given a step in the species' environment-space. Alternatively, species with narrow environmental ranges may simply show no relationship to the environment. This should also be the case with Method 3. If I were looking at 1-3 species separately rather than in an aggregated framework, Method 2 is what I would do. 
 
@@ -211,13 +228,13 @@ a <- trts$wkr.wide %>% group_by(SPECIESID) %>%
   left_join(., trts$spp_rng, by="SPECIESID") %>%
   ggplot(aes(rng, sd_Webers)) + 
   geom_point() + stat_smooth(method="lm") +
-  labs(x="Elevational range (m)", y="Webers Length sd", title="Standard deviation")
+  labs(x="Elevational range (m)", y="Webers Length sd", title="Workers")
 b <- trts$wkr.wide %>% group_by(SPECIESID) %>%
   summarise(mn_Webers=mean(WebersLength), sd_Webers=sd(WebersLength)) %>%
   left_join(., trts$spp_rng, by="SPECIESID") %>%
   ggplot(aes(rng, sd_Webers/mn_Webers)) + 
   geom_point() + stat_smooth(method="lm") +
-  labs(x="Elevational range (m)", y="Webers Length CV", title="CV")
+  labs(x="Elevational range (m)", y="Webers Length CV", title="Workers")
 c <- trts$clny.wide %>% group_by(SPECIESID) %>%
   summarise(mn_Webers=mean(mnValue_WebersLength), 
             sd_Webers=sd(mnValue_WebersLength)) %>%
@@ -237,8 +254,14 @@ d <- trts$clny.wide %>% group_by(SPECIESID) %>%
 ggpubr::ggarrange(plotlist=list(a, b, c, d), nrow=2, ncol=2)
 ```
 
-So, I think Method 2 or Method 3 would be better than Method 1. 
 
+## Conclusion  
+
+The slopes can always be back-transformed if needed, though it is a bit complicated. 
+
+However, I think Method 2 or Method 3 would be better than Method 1 for the practical purposes of the slope identifiability. Therefore, going forward, **the response variable will be the trait value standardized within each species.** 
+
+It is less clear between Method 2 or Method 3, and I've gone back and forth a lot. 
 
 
 
@@ -250,10 +273,23 @@ So, I think Method 2 or Method 3 would be better than Method 1.
 
 # Genus-level effects  
 
-Text.
-```{r}
+## Issue overview  
 
+Obviously, species are clustered within genera, and species within a genus are typically morphologically quite similar to each other. A hierarchical framework for the slopes can naturally and easily incorporate taxonomic or phylogenetic structure to the responses. Conversely, while the trait values themselves are similar among congeners, it isn't clear to what extent the patterns of intraspecific variation across environments are similar among congeners. That is, with [Method 1](https://sz-tim.github.io/CH_traits/model_structure.html#Standardization-options), there would likely be genus-level effects on at least the species-level intercepts for the trait means. Similarly, it is not clear how much the patterns of intra-colony variance would cluster by genus. 
+
+As it is, I have versions with and without genus-level effects. One argument in favor of including them is that the taxonomic coverage is not complete. Rather, several Myrmicine genera are fully measured, while only a few *Lasius* species are included, and a single *Formica* species. The estimates of $\beta$ will be more heavily weighted toward the responses of *Myrmica*, *Lasius*, *Temnothorax*, and  *Tetramorium* if there is no hierarchical structure. 
+
+```{r taxon_summaries, echo=F, message=F}
+trts$clny.wide %>% 
+  group_by(GENUSID) %>% summarise(nSpp=n_distinct(SPECIESID))
 ```
+
+It may be possible to instead include a species-level covariance matrix based on the phylogeny, if that's something they plan to do with the genetic data. Alternatively, I could include a genus-level phylogeny with the genus-level hierarchical slopes.
+
+
+## Conclusion  
+
+Either keep genus-level effects, or use a species-level phylogeny. 
 
 
 
@@ -265,10 +301,57 @@ Text.
 
 # Colony-to-Predicted $\sigma$  
 
-Text.
-```{r}
+## Issue overview  
 
-```
+This model has many levels. Workers $i$ from colony $j$ of species $s$ are drawn from colony-level trait distributions: 
+
+\begin{equation}
+  y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
+\end{equation}
+
+with intra-colony means $\bar{y}_{j,s,}$ distributed about regression lines based on environmental variables:
+
+\begin{equation}
+  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1,s})
+\end{equation}
+
+\begin{equation}
+  \mu_{j,s} = X_j b_s
+\end{equation}
+
+and intra-colony standard deviations $d_{j,s}$ distributed similarly:
+
+\begin{equation}
+  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2,s})
+\end{equation}
+
+\begin{equation}
+  \delta_{j,s} = V_j a_s
+\end{equation}
+
+There are therefore multiple error terms, each of which could be treated as species-specific. I had found convergence issues and thought I figured it out, but now I'm not certain what I was doing. The full model as described above fails to converge. I think my solution was to adjust $\sigma_{x,s}$ to be global rather than species-specific, but I'm not sure. I'm re-running models now to investigate. 
+
+As it is, convergence looks good for `5_aI_bIS` models in the `convergence_trials/`, `convergence_trials/no_gen/`, and `fixed_sd/` directories. These models all use a global $\sigma$ for the standard deviation of $\bar{y}$ and $log(d)$ rather than allowing species-specific values. 
+
+
+## Simplifying assumptions
+
+A global $\sigma$ for the deviation of the latent colony mean or sd to the prediction from the regression line would mean that this error term is jointly estimated across all species. This assumes that the variation among colonies in identical environments is the same across all species. This is not true, but it may be an unavoidable simplification. Standardizing the traits within each species should help reduce the effect of this mis-specification also. 
+
+Under this scenario, the equations above become:  
+
+\begin{equation}
+  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1})
+\end{equation}
+\begin{equation}
+  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2})
+\end{equation}
+
+Alternatively, the `fixed_sd/` directory forgoes the prediction of $log(d_{j,s})$ based on the environment altogether, and instead draws $d_{j,s}$ from a lognormal distribution with either a global $\sigma$ or, in `fixed_sd/*_aI_*.stan`, species-specific $\sigma_s$. Both seem to converge, but it eliminates the prediction of $d_{j,s}$ based on the environment.
+
+## Conclusion
+
+This assumption will almost certainly be necessary. Either $\delta$ is predicted by the environment with a global $\sigma_2$, or $d$ is drawn directly from species-specific $\sigma_{2,s}$ with no environmental regression, with variation in colony-level $d$ modelled as noise.
 
 
 
@@ -280,11 +363,21 @@ Text.
 
 # Robust worker distribution  
 
-Text.
-```{r}
+## Issue overview  
 
-```
+Because of logistical constraints, I have relatively few workers per colony. It is not out of line with past work, but it is on the low side for estimating standard deviations within colonies. More specifically, I will tend to [underestimate intra-colony variance](https://sz-tim.github.io/CH_traits/outline.html#Within-colony_variation). One option available is to estimate the colony-level distribution using robust regression, where workers follow a Student-t distribution. This introduces one additional parameter, $\nu$, which of course controls the fatness of the tails. In theory, this reduces the effect of extreme values. For example, if one of the four workers in a colony is exceptionally light colored, that will have less influence on the predicted $\bar{y}$ and $d$. 
 
+Stan uses a [parameterization](https://mc-stan.org/docs/2_26/functions-reference/student-t-distribution.html) that uses a location ($\bar{y}$), scale ($d$), and degrees of freedom ($\nu$), so it doesn't interfere with either colony-level regression. For robust regression to work, $\nu$ will almost certainly have to be global rather than species-specific, and it will also almost certainly require the same assumption of [global deviation](https://sz-tim.github.io/CH_traits/model_structure.html#Colony-to-Predicted_(sigma)) from the regression line to the colony-level parameters. 
+
+
+## Data-based evidence  
+
+I started [some explorations](https://sz-tim.github.io/CH_traits/outline.html#are-traits-distributed-normally-within-colonies) earlier in the year, and it seemed like there was some evidence that robust regression might fit the data. I still need to do more though.
+
+
+## Conclusion
+
+Probably good to do, but not sure yet. 
 
 
 
@@ -295,11 +388,9 @@ Text.
 
 # Fixed vs. random effects  
 
-Text.
-```{r}
+## Issue overview
 
-```
-
+In each of the regressions, the slopes could be either global, or vary by species. I think it makes the most sense to allow the relationship to vary by species, with hierarchical slopes as described above in the section on [genus-level effects](https://sz-tim.github.io/CH_traits/model_structure.html#Genus-level-effects). However, I do have versions of the model that allow for 1) fixed effects, 2) random intercepts, and 3) random intercepts and slopes, as well as each combination for the $\delta$ and $\mu$ regressions. 
 
 
 
