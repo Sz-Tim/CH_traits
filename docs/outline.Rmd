@@ -21,7 +21,6 @@ header-includes:
   - \newcommand{\beginoutline}{\setcounter{table}{0}  \renewcommand{\thetable}{B.\arabic{table}} \setcounter{figure}{0} \renewcommand{\thefigure}{B.\arabic{figure}}}  \usepackage{longtable}  \usepackage{caption}
 ---
 
-\beginoutline
 
 ```{r setup, echo=F}
 # set directory for knitr as main project directory
@@ -36,7 +35,7 @@ theme_set(theme_bw() + theme(panel.grid.minor=element_blank()))
 
 
 
-\section{Introduction}
+# Introduction
 In ants, traits vary among workers. Past work along environmental gradients has primarily focused on how traits vary among species or communities, relying on a single species-wide average value for each trait. This research has shown that ant communities tend to become darker in colder environments, particularly when UV-B is high. Darker species also tend to be larger. Further, rather than a shift of the whole size distribution, colder environments tend to filter out the smallest species. Similarly, wet environments tend to filter out larger species. 
 
 Some work has also explored variation within species across an elevational gradient, though with either limited taxonomic scope (i.e., focused on one species) or limitations on the applicability within a eusocial taxon due to logistical constraints (i.e., colonies were not adequately addressed). Nevertheless, this work has shown an increase in body size with elevation in one species. In contrast, the broader study found that intraspecific variation was rather small (relative to total variation across all species) and did not show much relationship with elevation. 
@@ -46,6 +45,7 @@ However, as eusocial insects, variation within a species is not necessarily the 
 Different traits may have different combinations of pressures. Allen's rule, developed for endotherms (but let's be honest, it has probably been applied to ectotherms as well) posits that body shapes and limb proportions should vary with the climate, maximizing exposure in warm climates (i.e., longer limbs) and minimizing exposure in cold climates (i.e., shorter limbs). This is something to look into in ants. Limb length could also be affected by development time or conditions or something... Relative leg length does have an impact on foraging behaviors. Relative scape length would feel some of these same physiological pressures.
 
 The biogeographical 'rules' that could be relevant include:  
+
 - Bergmann's rule (larger bodies in colder places)  
 - Allen's rule (longer limbs in warmer places)  
 - Gloger's rule (darker color in humid places)
@@ -55,49 +55,45 @@ Given the assemblage-level work using species-level averages, there's also the q
 Combining everything, the predictions *could* be:  
 
 1. In **cold** environments:  
-  a. Size  
-    - colony means are larger  
-    - q05 is larger, q95 is unchanged (?)  
-    - colony sd is larger (but conflicts with previous)  
-  b. Color  
-    - colony means are darker  
-    - colony sd is larger  
-  c. Relative Leg Length  
-    - colony means are smaller  
-  d. Relative Scape Length  
-    - colony means are smaller  
-    
+    a. Size  
+        - colony means are larger  
+        - q05 is larger, q95 is unchanged (?)  
+        - colony sd is larger (but conflicts with previous)  
+    b. Color  
+        - colony means are darker  
+        - colony sd is larger  
+    c. Relative Leg Length  
+        - colony means are smaller  
+    d. Relative Scape Length  
+        - colony means are smaller  
 2. In **wet** environments:  
-  a. Size  
-    - colony means are smaller
-    - q05 is unchanged, q95 is smaller (?)
-  b. Color  
-    - colony means are darker  
-    
+    a. Size  
+        - colony means are smaller
+        - q05 is unchanged, q95 is smaller (?)
+    b. Color  
+        - colony means are darker  
 3. In **early** season:
-  a. Size  
-  b. Color  
-    - colony sd is larger at end of season (?)  
-
+    a. Size  
+    b. Color  
+        - colony sd is larger at end of season (?)  
 4. In **highly variable** environments:  
-  a. Size  
-    - colony sd is larger
-  b. Color  
-    - colony sd is larger  
-
+    a. Size  
+        - colony sd is larger
+    b. Color  
+        - colony sd is larger  
 5. Size and color:
-  a. Larger workers are darker  
-  b. Colonies with larger means have darker means  
-
+    a. Larger workers are darker  
+    b. Colonies with larger means have darker means  
 6. Predictions based on foraging habits?  
-  a. Species/genera that forage in open are more exposed
-  b. Species in forests are less exposed  
-  c. Variation has larger impact for larger taxa?  
-    - a 10% change in size is physiologically more consequential for larger sizes
+    a. Species/genera that forage in open are more exposed
+    b. Species in forests are less exposed  
+    c. Variation has larger impact for larger taxa?  
+        - a 10% change in size is physiologically more consequential for larger sizes
 
 
 
 So in this paper, here are the possible topics to include:  
+
 - Basic description with pretty figures showing the distribution of traits among different species  
 - Variance partitioning across biological levels  
 - Correlations, PCA of traits within workers  
@@ -109,16 +105,20 @@ https://jrnold.github.io/bayesian_notes/heteroskedasticity.html
 
 
 
-\section{Methods}
-\subsection{Model}
-\subsubsection{Overview}
+----------
+
+
+
+# Methods  
+## Model  
+### Overview  
 
 This model partitions variation in worker-level traits across multiple biological levels. First, workers are distributed within their colony. We assume that the traits of workers within each colony follow a normal distribution about a colony-level mean with a colony-level standard deviation. This is empirically not true for all species, species that are polymorphic or dimorphic. For workers in the minor caste or for workers of monomorphic species, however, this is a reasonable simplifying assumption. 
 
 The colony-level mean and standard deviation may vary with the environment. That's what we're testing. However, there are other factors beyond the available environmental variables that may influence these values, including stochasticity. Thus, we construct separate regressions for the mean and standard deviation, where each includes environmental variables and normally distributed random error. Lastly, we allow each species to respond differently to each environmental variable (i.e., random intercept *and* random slopes), but these responses are taxonomically clustered such that information is shared among species, with greater influence among species within the same genus. 
 
 
-\subsubsection{Intuitive formulation}
+### Intuitive formulation
 The trait value for each worker $i$ is distributed normally such that:
 
 \begin{equation}
@@ -195,7 +195,7 @@ And so we assume that the heteroskedasticity of workers within colonies is at le
 
 
 
-\subsubsection{Alternative formulation}
+### Alternative formulation
 The above equations could also be re-written in a different formulation that involves fewer equations, though I'm not sure it's more intuitive:
 
 \begin{equation}
@@ -239,7 +239,7 @@ It might be clearer to break that up a bit:
 
 As it is, the predictions by worker are strongly tied to the genus, even for a trait like color that is rather variable. This might become less so as I add the additional colonies from the public inventory, but it also reflects something real I think. Looking at the variance partitioning across different traits, a lot of the variation occurs at the genus-level:
 
-![Variance partitioning of worker traits](eda/varpart_all.jpg)
+![Variance partitioning of worker traits](../eda/varpart_all.jpg)
 
 However, for a trait like color, we would expect that there is more clustering within species rather than within genera. Suitably broad priors on $\sigma_a$ should take care of that, I think.
 
@@ -247,7 +247,7 @@ However, for a trait like color, we would expect that there is more clustering w
 
 
 
-\subsubsection{Robust regression}
+### Robust regression
 An important issue to consider is whether the data suggest that the error distributions are normal. If there are large outliers, robust regression may be more suitable. In robust regression, errors follow a Student-t distribution which gives extra weight on the tails, effectively reducing the weight of outliers. There are three places where robust regression could be implemented: 1) the distribution of worker-level traits within colonies such that $y_{i,j,s} \sim Student(\bar{y}_{j,s}, \nu_{s}, d_{j,s})$; 2) the distribution of colony-level means about the predicted mean line such that $\bar{y}_{j,s} \sim Student(\mu_{j,s}, \nu_{1,s} \sigma_{1,s})$; 3) the distribution of colony-level standard deviation such that $log(d_{j,s}) \sim Student(\delta_{j,s}, \nu_{2,s} \sigma_{2,s})$.
 
 Each of these three decisions should be based on data. The decision for 2 and 3 are based off of residuals to the regression lines, and consequently the explanatory power of the covariates will influence the width of the error distribution. The distribution of workers within colonies is somewhat less dependent on the covariates, though it is indirectly through the estimation of the colony means.
@@ -258,9 +258,9 @@ So these are the questions to answer regarding robust regression:
 3. Are colony log(sd)'s distributed normally about delta?
 4. If the answer to any of these is plausibly no, then should df be constant or vary among species?
 
-\subsubsubsection{Are traits distributed normally within colonies?}
+#### Are traits distributed normally within colonies?
 There are only 4 workers per colony maximum, so this is somewhat challenging to answer from the data. I'll need to look into the literature too to see if I can find anything about the species here. Obviously the assumption of normality would not hold for species that are dimorphic or polymorphic, but that's one reason I'm not dealing with them.
-```{r}
+```{r trait_distr_intracolony, eval=F}
 # example model run for v with uninformative priors and normally distributed errors
 robust.wkr <- read_csv("data/out_wkr_robust.csv")
 robust.clny <- read_csv("data/out_clny_robust.csv")
@@ -311,39 +311,44 @@ ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_t)) + geom_point(alpha=0.1, size=0.5) 
 
 So there seem to be a decent number of points that are toward the tails of the simulated normal distributions, and the normal distributions seem overly broad to capture those outliers. That supports using a Student-t distribution for the distribution of workers within colonies.
 
-\subsubsubsection{Are colony means distributed normally about mu?}
+#### Are colony means distributed normally about mu?
 
-\subsubsubsection{Are log(colony sd)'s distributed normally about delta?}
-
-
+#### Are log(colony sd)'s distributed normally about delta?
 
 
 
 
 
+----------
 
 
-\section{Background}
-\subsection{Within-colony variation}
+
+
+# Background
+## Within-colony variation
 We expect that, on average, the variation within each colony will be underestimated. With only four workers from each colony, the sample size is quite small. This biases the standard deviation of the sample downward. For example, say we have a large colony with a trait that follows a standard normal distribution. We can take many samples of 4 workers and calculate the standard deviation of each sample:
-```{r}
+```{r sim_sd}
 sd_true <- 0.1
 wkr_samples <- map_dbl(1:1e5, ~sd(rnorm(4, 0, sd_true)))
+
 par(mfrow=c(1,2))
 plot(density(wkr_samples), main="Simulated sd for samples of 4 workers", 
      xlab="Sample sd")
 abline(v=sd_true, col="red")
+abline(v=exp(mean(log(wkr_samples))), col="blue", lty=2)
+
 plot((wkr_samples - sd_true), main="Residuals", col=rgb(0,0,0,0.05),
      xlab="Sample", ylab=expression(s-sigma))
 abline(h=0, col="red")
+abline(h=mean(wkr_samples - sd_true), col="blue", lty=2)
 
 # Proportion of samples underestimating true sd
-sum(wkr_samples < sd_true)/length(wkr_samples)
+round(sum(wkr_samples < sd_true)/length(wkr_samples), 3)
 ```
 
 
 Thus, we should expect that, on average, the latent predicted within-colony standard deviation $d$ is larger than the standard deviation of the four measurements. More specifically, it should be something like 60% that underestimate it. This is a function of the sample size, rather than the standard deviation, at least assuming that the observations are, in fact, drawn from a normal distribution.
-```{r message=FALSE}
+```{r sim_sd_sampleSize, message=FALSE}
 sim.df <- expand.grid(N=c(2,3,4,10), 
                       sd_true=seq(0.01, 2, length.out=6), 
                       sim=1:1e4) %>%
