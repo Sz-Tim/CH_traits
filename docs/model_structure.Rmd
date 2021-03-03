@@ -331,7 +331,7 @@ and intra-colony standard deviations $d_{j,s}$ distributed similarly:
 
 There are therefore multiple error terms, each of which could be treated as species-specific. I had found convergence issues and thought I figured it out, but now I'm not certain what I was doing. The full model as described above fails to converge. I think my solution was to adjust $\sigma_{x,s}$ to be global rather than species-specific, but I'm not sure. I'm re-running models now to investigate. 
 
-As it is, convergence looks good for `5_aI_bIS` models in the `convergence_trials/`, `convergence_trials/no_gen/`, and `fixed_sd/` directories. These models all use a global $\sigma$ for the standard deviation of $\bar{y}$ and $log(d)$ rather than allowing species-specific values. 
+As it is, convergence looks good for `5_aI_bIS` models in the `global_sigma/`, `global_sigma/no_gen/`, and `fixed_delta/` directories. These models all use a global $\sigma$ for the standard deviation of $\bar{y}$ and $log(d)$ rather than allowing species-specific values. 
 
 
 ## Simplifying assumptions
@@ -347,7 +347,7 @@ Under this scenario, the equations above become:
   log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2})
 \end{equation}
 
-Alternatively, the `fixed_sd/` directory forgoes the prediction of $log(d_{j,s})$ based on the environment altogether, and instead draws $d_{j,s}$ from a lognormal distribution with either a global $\sigma$ or, in `fixed_sd/*_aI_*.stan`, species-specific $\sigma_s$. Both seem to converge, but it eliminates the prediction of $d_{j,s}$ based on the environment.
+Alternatively, the `fixed_delta/` directory forgoes the prediction of $log(d_{j,s})$ based on the environment altogether, and instead draws $d_{j,s}$ from a lognormal distribution with either a global $\sigma$ or, in `fixed_delta/*_aI_*.stan`, species-specific $\sigma_s$. Both seem to converge, but it eliminates the prediction of $d_{j,s}$ based on the environment.
 
 ## Conclusion
 
