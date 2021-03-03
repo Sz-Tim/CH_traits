@@ -23,9 +23,7 @@ data {
 parameters {
   
   real<lower=1e-10, upper=1e2> sigma_clny_1_global;
-  real<lower=1e-10, upper=1e2> sigma_clny_1[S];  // scale: y_bar ~ Norm(mu, sigma_clny_1)
   real<lower=1e-10, upper=1e2> sigma_clny_2_global;
-  real<lower=1e-10, upper=1e2> sigma_clny_2[S];  // scale: log(d) ~ Norm(delta, sigma_clny_2)
   vector[N_clny] y_bar;  // within-colony mean
   vector<lower=0>[N_clny] d;  // within-colony sd
   
@@ -33,21 +31,23 @@ parameters {
   // A ~ mvNorm(alpha, sigma_A)
   // a ~ Norm(A, sigma_a)
   vector[P_sd] alpha;  // intercept and slope for trait_sd
-  matrix[P_sd,G] z_A; // species specific intercept and slope, on N(0,1)
+  matrix[P_sd,G] z_A; // species specific intercept and slope
   vector<lower=0>[P_sd] sigma_A; // sd for intercept and slope
   cholesky_factor_corr[P_sd] L_A; // cholesky correlation matrix
-  matrix[P_sd,S] z_a; // species specific intercept and slope, on N(0,1)
+  matrix[P_sd,S] z_a; // species specific intercept and slope
   vector<lower=0>[P_sd] sigma_a; // sd for intercept and slope
   
   // trait_mn slopes: beta, B, a
   // B ~ mvNorm(beta, sigma_B)
   // b ~ Norm(B, sigma_b)
   vector[P_mn] beta; // intercept and slope hyper-priors
-  matrix[P_mn,G] z_B; // species specific intercept and slope, on N(0,1)
+  matrix[P_mn,G] z_B; // species specific intercept and slope
   vector<lower=0>[P_mn] sigma_B; // sd for intercept and slope
   cholesky_factor_corr[P_mn] L_B; // cholesky correlation matrix
-  matrix[P_mn,S] z_b; // species specific intercept and slope, on N(0,1)
+  matrix[P_mn,S] z_b; // species specific intercept and slope
   vector<lower=0>[P_mn] sigma_b; // sd for intercept and slope
+  
+  real<lower=1> nu_w;
   
 }
 
@@ -83,12 +83,10 @@ transformed parameters {
 model {
   
   // priors
-  y_bar ~ normal(mu, sigma_clny_1[spp_id]);
-  to_vector(sigma_clny_1) ~ exponential(sigma_clny_1_global);
+  y_bar ~ normal(mu, sigma_clny_1_global);
   sigma_clny_1_global ~ normal(5, 3);
   
-  d ~ lognormal(delta, sigma_clny_2[spp_id]);
-  to_vector(sigma_clny_2) ~ exponential(sigma_clny_2_global);
+  d ~ lognormal(delta, sigma_clny_2_global);
   sigma_clny_2_global ~ normal(5, 3);
   
   alpha ~ normal(0, 1);
@@ -104,9 +102,11 @@ model {
   L_B ~ lkj_corr_cholesky(1);
   to_vector(z_B) ~ normal(0, 1);
   to_vector(z_b) ~ normal(0, 1);
+  
+  nu_w ~ gamma(2, 0.5);
 
   // likelihood
-  y ~ normal(y_bar[clny_id], d[clny_id]);
+  y ~ student_t(nu_w, y_bar[clny_id], d[clny_id]);
   
 }
 
@@ -122,22 +122,22 @@ generated quantities {
   vector[N_clny] y_bar_pred;
   vector[N_clny] d_pred;
   // matrix[P_sd,P_sd] Omega_A;
-  matrix[P_sd,S] a_mn; 
-  matrix[P_sd,G] A_mn; 
   // matrix[P_mn,P_mn] Omega_B;
+  matrix[P_sd,S] a_mn; 
   matrix[P_mn,S] b_mn; 
+  matrix[P_sd,G] A_mn; 
   matrix[P_mn,G] B_mn; 
   
   for(j in 1:N_clny) {
-    y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1[spp_id[j]]);
-    d_pred[j] = lognormal_rng(delta[j], sigma_clny_2[spp_id[j]]);
+    y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1_global);
+    d_pred[j] = lognormal_rng(delta[j], sigma_clny_2_global);
   }
   for(i in 1:N_wkr) {
-    log_lik[i] = normal_lpdf(y[i] | y_bar[clny_id[i]], d[clny_id[i]]);
-    y_pred[i] = normal_rng(y_bar[clny_id[i]], d[clny_id[i]]);
-    y_pred_[i] = normal_rng(y_bar_pred[clny_id[i]], d_pred[clny_id[i]]);
+    log_lik[i] = student_t_lpdf(y[i] | nu_w, y_bar[clny_id[i]], d[clny_id[i]]);
+    y_pred[i] = student_t_rng(nu_w, y_bar[clny_id[i]], d[clny_id[i]]);
+    y_pred_[i] = student_t_rng(nu_w, y_bar_pred[clny_id[i]], d_pred[clny_id[i]]);
   }
-  
+
   // Omega_A = multiply_lower_tri_self_transpose(L_A);
   // Omega_B = multiply_lower_tri_self_transpose(L_B);
   for(p in 1:P_sd) {

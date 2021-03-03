@@ -13,9 +13,9 @@ data {
 }
 
 parameters {
-  real<lower=0> sigma_clny_to_mn;
+  real<lower=1e-10, upper=1e2> sigma_clny_to_mn;
   vector[N_clny] err_clny_to_mn;
-  real<lower=0> sigma_wkr_to_clny;
+  real<lower=1e-10, upper=1e2> sigma_wkr_to_clny;
   
   vector[P_mn] beta; // intercept and slope hyper-priors
   matrix[P_mn,S] z_b; // species specific intercept and slope

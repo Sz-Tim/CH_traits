@@ -15,9 +15,9 @@ data {
 }
 
 parameters {
-  real<lower=0> sigma_mn_clny_to_mn;
+  real<lower=1e-10, upper=1e2> sigma_mn_clny_to_mn;
   vector[N_clny] err_mn_clny_to_mn;
-  real<lower=0> sigma_sd_clny_to_mn;
+  real<lower=1e-10, upper=1e2> sigma_sd_clny_to_mn;
   vector[N_clny] err_sd_clny_to_mn;
   
   vector[P_sd] alpha;  // intercept and slope for variance

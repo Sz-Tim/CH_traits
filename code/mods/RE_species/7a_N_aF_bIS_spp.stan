@@ -21,10 +21,10 @@ data {
 
 parameters {
   
-  real<lower=0> sigma_clny_1_global;
-  real<lower=0> sigma_clny_1[S];  // scale: y_bar ~ Norm(mu, sigma_clny_1)
-  real<lower=0> sigma_clny_2_global;
-  real<lower=0> sigma_clny_2[S];  // scale: log(d) ~ Norm(delta, sigma_clny_2)
+  real<lower=1e-10, upper=1e2> sigma_clny_1_global;
+  real<lower=1e-10, upper=1e2> sigma_clny_1[S];  // scale: y_bar ~ Norm(mu, sigma_clny_1)
+  real<lower=1e-10, upper=1e2> sigma_clny_2_global;
+  real<lower=1e-10, upper=1e2> sigma_clny_2[S];  // scale: log(d) ~ Norm(delta, sigma_clny_2)
   vector[N_clny] y_bar;  // within-colony mean
   vector<lower=0>[N_clny] d;  // within-colony sd
   

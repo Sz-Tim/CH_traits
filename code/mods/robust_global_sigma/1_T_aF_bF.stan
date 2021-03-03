@@ -20,8 +20,8 @@ data {
 
 parameters {
   
-  real<lower=1e-10, upper=1e2> sigma_clny_1;  // scale: y_bar ~ Norm(mu, sigma_clny_1)
-  real<lower=1e-10, upper=1e2> sigma_clny_2;  // scale: log(d) ~ Norm(delta, sigma_clny_2)
+  real<lower=1e-10, upper=1e2> sigma_clny_1_global;  // scale: y_bar ~ Norm(mu, sigma_clny_1)
+  real<lower=1e-10, upper=1e2> sigma_clny_2_global;  // scale: log(d) ~ Norm(delta, sigma_clny_2)
   vector[N_clny] y_bar;  // within-colony mean
   vector<lower=0>[N_clny] d;  // within-colony sd
   
@@ -52,11 +52,11 @@ transformed parameters {
 model {
   
   // priors
-  y_bar ~ normal(mu, sigma_clny_1);
-  sigma_clny_1 ~ exponential(1);
+  y_bar ~ normal(mu, sigma_clny_1_global);
+  sigma_clny_1_global ~ normal(5, 3);
   
-  d ~ lognormal(delta, sigma_clny_2);
-  sigma_clny_2 ~ exponential(5);
+  d ~ lognormal(delta, sigma_clny_2_global);
+  sigma_clny_2_global ~ normal(5, 3);
   
   alpha ~ normal(0, 1);
   
@@ -82,8 +82,8 @@ generated quantities {
   vector[N_clny] d_pred;
   
   for(j in 1:N_clny) {
-    y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1);
-    d_pred[j] = lognormal_rng(delta[j], sigma_clny_2);
+    y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1_global);
+    d_pred[j] = lognormal_rng(delta[j], sigma_clny_2_global);
   }
   for(i in 1:N_wkr) {
     log_lik[i] = student_t_lpdf(y[i] | nu_w, y_bar[clny_id[i]], d[clny_id[i]]);

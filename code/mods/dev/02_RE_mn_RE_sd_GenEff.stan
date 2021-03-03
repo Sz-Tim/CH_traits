@@ -25,8 +25,8 @@ parameters {
   // error terms
   vector[N_clny] err_mn_clny_to_pred;  // error for modeled_clny_mn ~ predicted_mn
   vector[N_clny] err_sd_clny_to_pred;  // error for modeled_clny_sd ~ predicted_sd
-  real<lower=0> sigma_mn_clny_to_pred;  // sd for distribution of err_mn_clny_to_pred
-  real<lower=0> sigma_sd_clny_to_pred;  // sd for distribution of err_sd_clny_to_pred
+  real<lower=1e-10, upper=1e2> sigma_mn_clny_to_pred;  // sd for distribution of err_mn_clny_to_pred
+  real<lower=1e-10, upper=1e2> sigma_sd_clny_to_pred;  // sd for distribution of err_sd_clny_to_pred
   
   // trait_sd slopes: alpha, A, a
   // A ~ mvNorm(alpha, sigma_A)
