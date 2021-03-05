@@ -243,77 +243,10 @@ As it is, the predictions by worker are strongly tied to the genus, even for a t
 
 However, for a trait like color, we would expect that there is more clustering within species rather than within genera. Suitably broad priors on $\sigma_a$ should take care of that, I think.
 
+See the [trait distributions](https://sz-tim.github.io/CH_traits/trait_distributions.html#Variance-partitioning) notebook for more variance partitioning and exploration of the distribution and variance of traits.
 
 
 
-
-### Robust regression
-An important issue to consider is whether the data suggest that the error distributions are normal. If there are large outliers, robust regression may be more suitable. In robust regression, errors follow a Student-t distribution which gives extra weight on the tails, effectively reducing the weight of outliers. There are three places where robust regression could be implemented: 1) the distribution of worker-level traits within colonies such that $y_{i,j,s} \sim Student(\bar{y}_{j,s}, \nu_{s}, d_{j,s})$; 2) the distribution of colony-level means about the predicted mean line such that $\bar{y}_{j,s} \sim Student(\mu_{j,s}, \nu_{1,s} \sigma_{1,s})$; 3) the distribution of colony-level standard deviation such that $log(d_{j,s}) \sim Student(\delta_{j,s}, \nu_{2,s} \sigma_{2,s})$.
-
-Each of these three decisions should be based on data. The decision for 2 and 3 are based off of residuals to the regression lines, and consequently the explanatory power of the covariates will influence the width of the error distribution. The distribution of workers within colonies is somewhat less dependent on the covariates, though it is indirectly through the estimation of the colony means.
-
-So these are the questions to answer regarding robust regression:
-1. Are traits distributed normally within colonies? 
-2. Are colony means distributed normally about mu?
-3. Are colony log(sd)'s distributed normally about delta?
-4. If the answer to any of these is plausibly no, then should df be constant or vary among species?
-
-#### Are traits distributed normally within colonies?
-There are only 4 workers per colony maximum, so this is somewhat challenging to answer from the data. I'll need to look into the literature too to see if I can find anything about the species here. Obviously the assumption of normality would not hold for species that are dimorphic or polymorphic, but that's one reason I'm not dealing with them.
-```{r trait_distr_intracolony, eval=F}
-# example model run for v with uninformative priors and normally distributed errors
-robust.wkr <- read_csv("data/out_wkr_robust.csv")
-robust.clny <- read_csv("data/out_clny_robust.csv")
-normal.wkr <- read_csv("data/out_wkr_normal.csv")
-normal.clny <- read_csv("data/out_clny_normal.csv")
-
-nsim <- 1e3
-wkr.norm <- tibble(id=rep(1:nrow(robust.wkr), each=nsim),
-                   sim=rep(1:nsim, times=nrow(robust.wkr)),
-                   y_obs=rep(robust.wkr$v, each=nsim),
-                   y_bar_obs=rep(robust.clny$v[robust.wkr$clny_id], each=nsim),
-                   y_bar_N=rep(normal.wkr$y_bar, each=nsim),
-                   y_bar_t=rep(robust.wkr$y_bar, each=nsim),
-                   d_obs=rep(robust.clny$v_sd[robust.wkr$clny_id], each=nsim),
-                   d_N=rep(normal.wkr$d, each=nsim),
-                   d_t=rep(robust.wkr$d, each=nsim),
-                   y_sim_N_obs=rnorm(nrow(robust.wkr)*nsim, y_bar_obs, d_obs),
-                   y_sim_N=rnorm(nrow(normal.wkr)*nsim, y_bar_N, d_N),
-                   y_sim_t=brms::rstudent_t(nrow(robust.wkr)*nsim, 9.12, y_bar_t, d_t),
-                   ll_obs_N=dnorm(y_sim_N_obs, y_bar_obs, d_obs, log=T), 
-                   ll_sim_N=dnorm(y_sim_N, y_bar_N, d_N, log=T), 
-                   ll_sim_t=brms::dstudent_t(y_sim_t, 9.12, y_bar_t, d_t, log=T))
-# clny.norm <- tibble(obs_mn=rep(out.clny$v, each=nsim),
-#                     obs_sd=rep(out.clny$v_sd, each=nsim),
-#                     y_bar=rep(out.clny$y_bar, each=nsim),
-#                     d=rep(out.clny$d, each=nsim),
-#                     y_sim_obs=rnorm(nrow(out.clny)*nsim, obs_mn, obs_sd),
-#                     y_sim_fit=rnorm(nrow(out.clny)*nsim, y_bar, d))
-
-ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_N_obs)) + geom_point(alpha=0.1, size=0.5) +
-  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
-  labs(x=expression(bar(y)[obs]), y="y", 
-       title="Observed worker colour vs. normally distributed colour") + 
-  ylim(-3, 4) + xlim(-3, 4)
-ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_N)) + geom_point(alpha=0.1, size=0.5) +
-  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
-  labs(x=expression(bar(y)[obs]), y="y", 
-       title="Observed worker colour vs. normally distributed colour") + 
-  ylim(-3, 4) + xlim(-3, 4)
-ggplot(wkr.norm, aes(x=y_bar_obs, y=y_sim_t)) + geom_point(alpha=0.1, size=0.5) +
-  geom_point(data=filter(wkr.norm, sim==1), aes(y=y_obs), shape=1, colour="red") +
-  labs(x=expression(bar(y)[obs]), y="y", 
-       title="Observed worker colour vs. t-distributed colour") + 
-  ylim(-3, 4) + xlim(-3, 4)
-
-
-```
-
-So there seem to be a decent number of points that are toward the tails of the simulated normal distributions, and the normal distributions seem overly broad to capture those outliers. That supports using a Student-t distribution for the distribution of workers within colonies.
-
-#### Are colony means distributed normally about mu?
-
-#### Are log(colony sd)'s distributed normally about delta?
 
 
 
