@@ -293,6 +293,77 @@ summary_hdi <- function(out.stan, param, creds=c(0.5, 0.9, 0.95), varNames=NULL)
 
 
 
+#' Summarise Stan output to the colony level
+#'
+#' @param out.stan stan object with posterior samples
+#' @param params parameter of interest
+#' @param clny_df dataframe of worker-level traits
+#' @param trts list of trait dataframes produced by \code{load_traits()}
+#' @return Updated clny_df with HDI summaries for params
+#' 
+summarise_clny <- function(out.stan, params, clny_df, trts) {
+  library(tidyverse)
+  clny_df %>% ungroup %>%
+    mutate(El_m=trts$clny.wide$mnt25[match(TubeNo, trts$clny.wide$TubeNo)]) %>%
+    bind_cols(map(params,
+                  ~summary_hdi(out.stan, .x) %>%
+                    set_names(paste0(.x, "_", names(.)))))
+}
+
+
+
+
+
+
+#' Summarise Stan output to the worker level
+#'
+#' @param out.stan stan object with posterior samples
+#' @param params parameter of interest
+#' @param wkr_df dataframe of worker-level traits
+#' @param clny_out Updated clny_df from \code{summarise_clny()}
+#' @return Updated wkr_df with HDI summaries for params
+#' 
+summarise_wkr <- function(out.stan, params, wkr_df, clny_out) {
+  library(tidyverse)
+  wkr_df %>% ungroup %>%
+    full_join(clny_out %>% select(clny_id, all_of(paste0(params, "_mean"))), 
+              by="clny_id") %>%
+    bind_cols(map(c("y_pred", "y_pred_"), 
+                  ~summary_hdi(out.stan, .x) %>%
+                    set_names(paste0(.x, "_", names(.)))))
+}
+
+
+
+
+
+
+
+
+
+#' Save output from summarised stanfit object
+#'
+#' @param out_dir directory to save output
+#' @param Y_var response variable of interest
+#' @param mod_i name of model from `mods`
+#' @param mods.ls lookup table with model names and file extension abbreviations
+#' @param out.ls named list of summarised output (summarised with
+#'   `summarise_wkr()`, `summarise_clny()`, or `summary_hdi()`)
+#' @return Updated wkr_df with HDI summaries for params
+#' 
+save_summaries <- function(out_dir, Y_var, mod_i, mods.lu, out.ls) {
+  library(tidyverse)
+  imap(out.ls, ~write_csv(.x, paste0(out_dir, 
+                                     filter(mods.lu, name==mod_i)$abbr, "_", 
+                                     .y, "_", 
+                                     Y_var, ".csv")))
+}
+
+
+
+
+
+
 
 
 #' Plot of species-standardized color against a chosen variable
