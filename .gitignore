@@ -9,6 +9,7 @@
 background/
 eda/
 data/img/
+temp/
 
 # temp files
 outline.pdf
