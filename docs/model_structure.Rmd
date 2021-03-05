@@ -47,19 +47,23 @@ rast_end <- "_VD_21781.tif"
 msr_dir <- "data/img/"
 col_dir <- "data/img/"
 
-trait_match <- data.frame(orig=c("v", "HeadLength", "HeadWidth", 
+trait_match <- data.frame(orig=c("v", 
+                                 "HeadLength", "HeadWidth", 
                                  "InterocularDistance", "DVE",
                                  "ScapeLength", "WebersLength",
                                  "HindTibia", "MidTibia", "MesosomaWidth",
                                  "MesosomaLength", "HindFemur", "MidFemur",
                                  "MidLen", "HindLen", "MesoSA", 
                                  "HeadShape", "PronotExp", "ScapeProp"),
-                          full=c("Color (lightness)", "Head Length", "Head Width",
-                                 "Interocular Dist. (rel)", "Dorsoventral Eye Pos.",
+                          full=c("Color (lightness)", 
+                                 "Head Length", "Head Width",
+                                 "Interocular Dist. (rel)", 
+                                 "Dorsoventral Eye Pos.",
                                  "Scape Length", "Webers Length",
                                  "Hind Tibia", "Mid Tibia", "Pronotum Width",
                                  "Mesosoma Length", "Hind Femur", "Mid Femur",
-                                 "Rel. Leg Length (mid)", "Rel. Leg Length (hind)", 
+                                 "Rel. Leg Length (mid)", 
+                                 "Rel. Leg Length (hind)", 
                                  "Mesosoma SA", "Head Shape",
                                  "Pronotal Expansion", "Scape Proportion"))
 
@@ -369,15 +373,427 @@ Because of logistical constraints, I have relatively few workers per colony. It 
 
 Stan uses a [parameterization](https://mc-stan.org/docs/2_26/functions-reference/student-t-distribution.html) that uses a location ($\bar{y}$), scale ($d$), and degrees of freedom ($\nu$), so it doesn't interfere with either colony-level regression. For robust regression to work, $\nu$ will almost certainly have to be global rather than species-specific, and it will also almost certainly require the same assumption of [global deviation](https://sz-tim.github.io/CH_traits/model_structure.html#Colony-to-Predicted_(sigma)) from the regression line to the colony-level parameters. 
 
+In fact, since there are three locations in the model that assume normal error, there are three places where robust regression could be implemented: 
+
+- 1. The distribution of worker-level traits within colonies such that $y_{i,j,s} \sim Student(\bar{y}_{j,s}, \nu_{s}, d_{j,s})$  
+- 2. The distribution of colony-level means about the predicted mean line such that $\bar{y}_{j,s} \sim Student(\mu_{j,s}, \nu_{1,s} \sigma_{1,s})$  
+- 3. The distribution of colony-level standard deviation such that $log(d_{j,s}) \sim Student(\delta_{j,s}, \nu_{2,s} \sigma_{2,s})$  
+
+
 
 ## Data-based evidence  
 
-I started [some explorations](https://sz-tim.github.io/CH_traits/outline.html#are-traits-distributed-normally-within-colonies) earlier in the year, and it seemed like there was some evidence that robust regression might fit the data. I still need to do more though.
+Each of these three decisions should be based on data. The decision for 2 and 3 are based off of residuals to the regression lines, and consequently the explanatory power of the covariates will influence the width of the error distribution, and the assumed error distribution could affect the explanatory power of the covariates. The distribution of workers within colonies is somewhat less dependent on the covariates, though it is indirectly through the estimation of the colony means. In practice, both $\bar{y}$ and $d$ are generally quite close to the values directly calculated from the observed worker traits.
 
+So these are the questions to answer regarding robust regression:  
+
+1. Are traits distributed normally within colonies?  
+2. Are colony means distributed normally about mu?  
+3. Are colony log(sd)'s distributed normally about delta?  
+4. If the answer to any of these is plausibly no, then should df be constant or vary among species?  
+
+
+
+### 1. Are traits distributed normally within colonies?
+
+There are only 4 workers per colony maximum, so this is somewhat challenging to answer from the data. I'll need to look into the literature too to see if I can find anything about the species here. Obviously the assumption of normality would not hold for species that are dimorphic or polymorphic, but that's one reason I'm not dealing with them.
+
+Below, I compare worker traits from three sources: $y_{obs}$, $y_{Norm}$, and $y_{Robust}$, where $y_{Norm}$ and $y_{Robust}$ are simulated based on fitted models. The goal is to assess whether the observed values are better described by a normal distribution or a Student-t distribution.   
+
+```{r intracol_N_vs_t, echo=F, message=F, warning=F, fig.height=7}
+# initialize 
+wkr.sim <- setNames(vector("list", length(response_vars)), response_vars)
+
+n_sim <- 1e3
+
+# loop through variables
+for(i in seq_along(response_vars)) {
+  
+  response_i <- response_vars[i]
+  N.wkr <- read_csv(paste0("temp/N_wkr_", response_i, ".csv"))
+  N.clny <- read_csv(paste0("temp/N_clny_", response_i, ".csv"))
+  t.wkr <- read_csv(paste0("temp/t_y_wkr_", response_i, ".csv"))
+  t.clny <- read_csv(paste0("temp/t_y_clny_", response_i, ".csv"))
+  nu_i <- read_csv(paste0("temp/t_y_nu_", response_i, ".csv"))$mean
+  
+  n_wkr_i <- nrow(N.wkr)
+  wkr.sim[[i]] <- tibble(
+    trait=response_i,
+    id=rep(1:n_wkr_i, each=n_sim),
+    sim=rep(1:n_sim, times=n_wkr_i),
+    # observed y, ybar, d
+    y_obs=rep(N.wkr[[response_i]], each=n_sim),
+    y_bar_obs=rep(N.clny[[response_i]][N.wkr$clny_id], each=n_sim),
+    d_obs=rep(N.clny[[paste0(response_i, "_sd")]][N.wkr$clny_id], each=n_sim),
+    # fitted ybar, d
+    y_bar_N=rep(N.clny$y_bar_mean[N.wkr$clny_id], each=n_sim),
+    d_N=rep(N.clny$d_mean[N.wkr$clny_id], each=n_sim),
+    y_bar_t=rep(t.clny$y_bar_mean[t.wkr$clny_id], each=n_sim),
+    d_t=rep(t.clny$d_mean[t.wkr$clny_id], each=n_sim)
+  ) %>%
+    mutate(
+      # loglik(obs | Norm, t) using
+      ll_y_N=dnorm(y_obs, y_bar_N, d_N, log=T),
+      ll_y_t=brms::dstudent_t(y_obs, nu_i, y_bar_t, d_t, log=T),
+      # simulated y
+      y_sim_N=rnorm(n_wkr_i*n_sim, y_bar_N, d_N),
+      y_sim_t=brms::rstudent_t(n_wkr_i*n_sim, nu_i, y_bar_t, d_t)
+    )
+}
+
+wkr.sim <- do.call('rbind', wkr.sim)
+
+# likelihoods
+wkr.sim %>% filter(sim==1) %>% group_by(trait) %>% 
+  summarise(N=sum(ll_y_N), t=sum(ll_y_t)) %>%
+  pivot_longer(-1, names_to="model", values_to="Total_LL") %>%
+  mutate(AIC=-2*Total_LL) %>%
+  arrange(trait, AIC) %>%
+  group_by(trait) %>% mutate(dAIC=AIC-first(AIC))
+
+# log likelihood by observed residual
+wkr.sim %>% filter(sim==1) %>% select(trait, y_obs, y_bar_obs, contains("ll")) %>%
+  rename(Normal=ll_y_N, Robust=ll_y_t) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="ll") %>%
+  ggplot(aes(y_obs-y_bar_obs, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) +
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(y[obs]-bar(y)[obs]), y="Pointwise log likelihood",
+       title="Pointwise log likelihood by residual")
+
+wkr.sim %>% filter(sim==1) %>% select(trait, y_obs, y_bar_obs, contains("ll")) %>%
+  rename(Normal=ll_y_N, Robust=ll_y_t) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="ll") %>%
+  ggplot(aes(y_obs, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) +
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(y[obs]), y="Pointwise log likelihood",
+       title="Pointwise log likelihood by y")
+
+# compare log likelihoods
+wkr.sim %>% filter(sim==1) %>% select(trait, y_obs, contains("ll")) %>%
+  rename(Normal=ll_y_N, Robust=ll_y_t) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="ll") %>%
+  ggplot(aes(ll, colour=model)) + geom_density(alpha=0.5, size=0.5, fill="grey") +  
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) + 
+  ggtitle(expression(logLik(y[obs]~~"|"~~bar(y)[est],d[est],nu[est])))
+
+# compare RMSE across simulations
+wkr.sim %>% select(y_obs, trait, sim, contains("y_sim")) %>%
+  rename(Normal=y_sim_N, Robust=y_sim_t) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="y_pred") %>%
+  group_by(trait, model, sim) %>%
+  summarise(RMSE=sqrt(mean((y_pred-y_obs)^2, na.rm=T))) %>%
+  ggplot(aes(RMSE, fill=model)) + geom_density(alpha=0.5, size=0.25) + 
+  scale_fill_brewer(type="qual") + facet_wrap(~trait) +
+  labs(title=expression(RMSE(y[sim]~~"|"~~y[obs],bar(y)[est],d[est],nu[est])),
+       subtitle="Across simulations")
+```
+
+So it seems that generally there is very little difference, but that the normal distribution performs slightly better. In fact, the residuals of observed worker traits to observed colony means is somewhat narrower than a normal distribution, such that the normal distribution has higher density on the tails than the t-distribution.  
+
+```{r obs_intracol_residuals, echo=F, fig.height=7}
+par(mfrow=c(3,3))
+for(i in seq_along(response_vars)) {
+  obs_resid <- with(filter(wkr.sim, sim==1 & trait==response_vars[i]), y_obs-y_bar_obs)
+  plot(density(obs_resid), main=response_vars[i])
+  curve(dnorm(x, mean(obs_resid), sd(obs_resid)), add=T, col="red")
+}
+par(mfrow=c(1,1)) 
+```
+
+In theory, $\nu$ could vary across species, but as with the $\sigma$ terms, that leads to a failure to converge. 
+
+
+
+### 2. Are colony means distributed normally about mu?
+
+Next, we can look to see whether there is evidence that $\bar{y}$ should be modelled with a robust regression about $\mu$. This would allow for additional dispersion in trait means among colonies found in the same environmental conditions. 
+
+```{r ybar_N_vs_t, echo=F, message=F, warning=F, fig.height=7}
+# initialize 
+clny.sim <- setNames(vector("list", length(response_vars)), response_vars)
+
+n_sim <- 1e3
+
+# loop through variables
+for(i in seq_along(response_vars)) {
+  
+  response_i <- response_vars[i]
+  N.clny <- read_csv(paste0("temp/N_clny_", response_i, ".csv"))
+  N.sig <- read_csv(paste0("temp/N_sigma_", response_i, ".csv"))$mean[1]
+  t.clny <- read_csv(paste0("temp/t_ybar_clny_", response_i, ".csv"))
+  t.sig <- read_csv(paste0("temp/t_ybar_sigma_", response_i, ".csv"))$mean[1]
+  t.nu <- read_csv(paste0("temp/t_ybar_nu_", response_i, ".csv"))$mean
+  tboth.clny <- read_csv(paste0("temp/t_both_clny_", response_i, ".csv"))
+  tboth.sig <- read_csv(paste0("temp/t_both_sigma_", response_i, ".csv"))$mean[1]
+  tboth.nu <- read_csv(paste0("temp/t_both_nu_", response_i, ".csv"))$mean[2]
+  
+  n_clny_i <- nrow(N.clny)
+  clny.sim[[i]] <- tibble(
+    trait=response_i,
+    id=rep(1:n_clny_i, each=n_sim),
+    sim=rep(1:n_sim, times=n_clny_i),
+    # observed ybar
+    y_bar_obs=rep(N.clny[[response_i]], each=n_sim),
+    # fitted ybar, mu
+    y_bar_N=rep(N.clny$y_bar_mean, each=n_sim),
+    mu_N=rep(N.clny$mu_mean, each=n_sim),
+    y_bar_t=rep(t.clny$y_bar_mean, each=n_sim),
+    mu_t=rep(t.clny$mu_mean, each=n_sim),
+    y_bar_tboth=rep(tboth.clny$y_bar_mean, each=n_sim),
+    mu_tboth=rep(tboth.clny$mu_mean, each=n_sim)
+  ) %>%
+    mutate(
+      # loglik(obs | Norm, t)
+      ll_y_bar_N=dnorm(y_bar_obs, mu_N, N.sig, log=T),
+      ll_y_bar_t=brms::dstudent_t(y_bar_obs, t.nu, mu_t, t.sig, log=T),
+      ll_y_bar_tboth=brms::dstudent_t(y_bar_obs, tboth.nu, mu_tboth, tboth.sig, log=T),
+      # simulated ybar
+      y_bar_sim_N=rnorm(n_clny_i*n_sim, mu_N, N.sig),
+      y_bar_sim_t=brms::rstudent_t(n_clny_i*n_sim, t.nu, mu_t, t.sig),
+      y_bar_sim_tboth=brms::rstudent_t(n_clny_i*n_sim, tboth.nu, mu_tboth, tboth.sig)
+    )
+}
+
+clny.sim <- do.call('rbind', clny.sim)
+
+# likelihoods
+clny.sim %>% filter(sim==1) %>% group_by(trait) %>% 
+  summarise(N=sum(ll_y_bar_N), 
+            t=sum(ll_y_bar_t),
+            tboth=sum(ll_y_bar_tboth)) %>%
+  pivot_longer(-1, names_to="model", values_to="Total_LL") %>%
+  mutate(AIC=-2*Total_LL) %>%
+  arrange(trait, AIC) %>%
+  group_by(trait) %>% mutate(dAIC=AIC-first(AIC))
+
+# compare log likelihoods
+clny.sim %>% filter(sim==1) %>% select(trait, y_bar_obs, contains("ll")) %>%
+  rename(Normal=ll_y_bar_N, Robust=ll_y_bar_t, Robust_both=ll_y_bar_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="ll") %>%
+  full_join(
+    clny.sim %>% filter(sim==1) %>% select(trait, y_bar_obs, contains("mu")) %>%
+      rename(Normal=mu_N, Robust=mu_t, Robust_both=mu_tboth) %>%
+      pivot_longer(-(1:2), names_to="model", values_to="mu"), 
+    by=c("trait", "model", "y_bar_obs")
+  ) %>%
+  ggplot(aes(y_bar_obs-mu, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) +
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(bar(y)[obs]-mu[est]), y="Pointwise log likelihood", 
+       title="Pointwise log likelihood by residual")
+
+clny.sim %>% filter(sim==1) %>% select(trait, y_bar_obs, contains("ll")) %>%
+  rename(LL_Normal=ll_y_bar_N, LL_Robust=ll_y_bar_t, LL_Robust_both=ll_y_bar_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="ll") %>%
+  ggplot(aes(y_bar_obs, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + 
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(bar(y)[obs]), y="Pointwise log likelihood", 
+       title=expression(Pointwise~log~likelihood~by~bar(y))) + 
+  facet_wrap(~trait)
+
+clny.sim %>% filter(sim==1) %>% select(trait, y_bar_obs, contains("ll")) %>%
+  rename(Normal=ll_y_bar_N, Robust=ll_y_bar_t, Robust_both=ll_y_bar_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="log likelihood") %>%
+  ggplot(aes(`log likelihood`, colour=model)) + 
+  geom_density(alpha=0.5, size=0.5, fill="grey") +  
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) + 
+  ggtitle(expression(logLik(bar(y)[obs]~~"|"~~mu[est],sigma[est],nu[est])))
+
+# compare RMSE across simulations
+clny.sim %>% select(y_bar_obs, trait, sim, contains("y_bar_sim")) %>%
+  rename(Normal=y_bar_sim_N, Robust=y_bar_sim_t, Robust_both=y_bar_sim_tboth) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="y_bar_pred") %>%
+  group_by(trait, model, sim) %>%
+  summarise(RMSE=sqrt(mean((y_bar_pred-y_bar_obs)^2, na.rm=T))) %>%
+  ggplot(aes(RMSE, fill=model)) + geom_density(alpha=0.5, size=0.25) + 
+  scale_fill_brewer(type="qual") + facet_wrap(~trait) +
+  labs(title=expression(RMSE(bar(y)[sim]~~"|"~~bar(y)[obs],mu[est],sigma[est],nu[est])),
+       subtitle="Across simulations")
+
+clny.sim %>% filter(sim==1) %>% select(trait, id, y_bar_obs, contains("mu")) %>%
+  rename(Normal=mu_N, Robust=mu_t, Robust_both=mu_tboth) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="mu") %>%
+  group_by(trait, id, model) %>%
+  summarise(RMSE=sqrt(mean((mu-y_bar_obs)^2, na.rm=T))) %>%
+  ggplot(aes(RMSE, fill=model)) + geom_density(alpha=0.5, size=0.25) + 
+  scale_fill_brewer(type="qual") + facet_wrap(~trait) +
+  labs(title=expression(RMSE(mu[est]~~"|"~~bar(y)[obs])),
+       subtitle="Across colonies")
+
+```
+
+Again, we see very little difference, with slightly better performance with a normal distribution.
+
+```{r ybar_residuals, echo=F, fig.height=7}
+par(mfrow=c(3,3))
+for(i in seq_along(response_vars)) {
+  obs_resid <- with(filter(clny.sim, sim==1 & trait==response_vars[i]), y_bar_obs-mu_N)
+  plot(density(obs_resid), main=paste0(response_vars[i], ": N"))
+  curve(dnorm(x, mean(obs_resid), sd(obs_resid)), add=T, col="red")
+}
+for(i in seq_along(response_vars)) {
+  obs_resid <- with(filter(clny.sim, sim==1 & trait==response_vars[i]), y_bar_obs-mu_t)
+  plot(density(obs_resid), main=paste0(response_vars[i], ": t"))
+  curve(brms::dstudent_t(x, nu_i, mean(obs_resid), sd(obs_resid)), add=T, col="red")
+}
+par(mfrow=c(1,1)) 
+```
+
+
+
+
+### 3. Are log(d)'s distributed normally about delta?
+
+I think there's a bug in the code below, since there are a few colonies in the Normal models with absurd log likelihoods...
+
+```{r d_N_vs_t, echo=F, message=F, warning=F, fig.height=7}
+# initialize 
+clny.sim <- setNames(vector("list", length(response_vars)), response_vars)
+
+n_sim <- 1e3
+
+# loop through variables
+for(i in seq_along(response_vars)) {
+  
+  response_i <- response_vars[i]
+  N.clny <- read_csv(paste0("temp/N_clny_", response_i, ".csv"))
+  N.sig <- read_csv(paste0("temp/N_sigma_", response_i, ".csv"))$mean[2]
+  t.clny <- read_csv(paste0("temp/t_d_clny_", response_i, ".csv"))
+  t.sig <- read_csv(paste0("temp/t_d_sigma_", response_i, ".csv"))$mean[2]
+  t.nu <- read_csv(paste0("temp/t_d_nu_", response_i, ".csv"))$mean
+  tboth.clny <- read_csv(paste0("temp/t_both_clny_", response_i, ".csv"))
+  tboth.sig <- read_csv(paste0("temp/t_both_sigma_", response_i, ".csv"))$mean[2]
+  tboth.nu <- read_csv(paste0("temp/t_both_nu_", response_i, ".csv"))$mean[1]
+  
+  n_clny_i <- nrow(N.clny)
+  clny.sim[[i]] <- tibble(
+    trait=response_i,
+    id=rep(1:n_clny_i, each=n_sim),
+    sim=rep(1:n_sim, times=n_clny_i),
+    # observed ybar
+    d_obs=rep(N.clny[[paste0(response_i, "_sd")]], each=n_sim),
+    dlog_obs=log(d_obs),
+    # fitted ybar, mu
+    d_N=rep(N.clny$d_mean, each=n_sim),
+    dlog_N=rep(N.clny$d_log_mean, each=n_sim),
+    delta_N=rep(N.clny$delta_mean, each=n_sim),
+    d_t=rep(t.clny$d_mean, each=n_sim),
+    dlog_t=rep(t.clny$d_log_mean, each=n_sim),
+    delta_t=rep(t.clny$delta_mean, each=n_sim),
+    d_tboth=rep(tboth.clny$d_mean, each=n_sim),
+    dlog_tboth=rep(tboth.clny$d_log_mean, each=n_sim),
+    delta_tboth=rep(tboth.clny$delta_mean, each=n_sim)
+  ) %>%
+    mutate(
+      # loglik(obs | Norm, t)
+      ll_d_N=dnorm(dlog_obs, delta_N, N.sig, log=T),
+      ll_d_t=brms::dstudent_t(dlog_obs, t.nu, delta_t, t.sig, log=T),
+      ll_d_tboth=brms::dstudent_t(dlog_obs, tboth.nu, delta_tboth, tboth.sig, log=T),
+      # simulated ybar
+      dlog_sim_N=rnorm(n_clny_i*n_sim, delta_N, N.sig),
+      d_sim_N=exp(dlog_sim_N),
+      dlog_sim_t=brms::rstudent_t(n_clny_i*n_sim, t.nu, delta_t, t.sig),
+      d_sim_t=exp(dlog_sim_t),
+      dlog_sim_tboth=brms::rstudent_t(n_clny_i*n_sim, tboth.nu, delta_tboth, tboth.sig),
+      d_sim_tboth=exp(dlog_sim_tboth)
+    )
+}
+
+clny.sim <- do.call('rbind', clny.sim)
+
+# likelihoods
+clny.sim %>% filter(sim==1) %>% group_by(trait) %>% 
+  summarise(N=sum(ll_d_N, na.rm=T), 
+            t=sum(ll_d_t, na.rm=T),
+            tboth=sum(ll_d_tboth, na.rm=T)) %>%
+  pivot_longer(-1, names_to="model", values_to="Total_LL") %>%
+  mutate(AIC=-2*Total_LL) %>%
+  arrange(trait, AIC) %>%
+  group_by(trait) %>% mutate(dAIC=AIC-first(AIC))
+
+# compare log likelihoods
+clny.sim %>% filter(sim==1) %>% select(trait, d_obs, contains("ll")) %>%
+  rename(Normal=ll_d_N, Robust=ll_d_t, Robust_both=ll_d_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="ll") %>%
+  full_join(
+    clny.sim %>% filter(sim==1) %>% select(trait, d_obs, contains("delta")) %>%
+      rename(Normal=delta_N, Robust=delta_t, Robust_both=delta_tboth) %>%
+      pivot_longer(-(1:2), names_to="model", values_to="delta"), 
+    by=c("trait", "model", "d_obs")
+  ) %>%
+  ggplot(aes(d_obs-delta, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) +
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(d[obs]-delta[est]), y="Pointwise log likelihood", 
+       title="Pointwise log likelihood by residual")
+
+clny.sim %>% filter(sim==1) %>% select(trait, d_obs, contains("ll")) %>%
+  rename(LL_Normal=ll_d_N, LL_Robust=ll_d_t, LL_Robust_both=ll_d_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="ll") %>%
+  ggplot(aes(d_obs, ll, colour=model)) + 
+  scale_colour_brewer(type="qual") + 
+  geom_point(alpha=0.5, shape=1) + stat_smooth(method="loess", se=F) + 
+  labs(x=expression(d[obs]), y="Pointwise log likelihood", 
+       title=expression(Pointwise~log~likelihood~by~d[obs])) + 
+  facet_wrap(~trait)
+
+clny.sim %>% filter(sim==1) %>% select(trait, d_obs, contains("ll")) %>%
+  rename(Normal=ll_d_N, Robust=ll_d_t, Robust_both=ll_d_tboth) %>%
+  pivot_longer(-(1:2), names_to="model", values_to="log likelihood") %>%
+  ggplot(aes(`log likelihood`, colour=model)) + 
+  geom_density(alpha=0.5, size=0.5, fill="grey") +  
+  scale_colour_brewer(type="qual") + facet_wrap(~trait) + 
+  ggtitle(expression(logLik(d[obs]~~"|"~~delta[est],sigma[est],nu[est])))
+
+# compare RMSE across simulations
+clny.sim %>% select(d_obs, trait, sim, contains("d_sim")) %>%
+  rename(Normal=d_sim_N, Robust=d_sim_t, Robust_both=d_sim_tboth) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="d_pred") %>%
+  group_by(trait, model, sim) %>%
+  summarise(RMSE=sqrt(mean((d_pred-d_obs)^2, na.rm=T))) %>%
+  ggplot(aes(RMSE, fill=model)) + geom_density(alpha=0.5, size=0.25) + 
+  scale_fill_brewer(type="qual") + facet_wrap(~trait) +
+  labs(title=expression(RMSE(d[sim]~~"|"~~d[obs],delta[est],sigma[est],nu[est])),
+       subtitle="Across simulations")
+
+clny.sim %>% filter(sim==1) %>% select(trait, id, d_obs, contains("delta")) %>%
+  rename(Normal=delta_N, Robust=delta_t, Robust_both=delta_tboth) %>%
+  pivot_longer(-(1:3), names_to="model", values_to="delta") %>%
+  group_by(trait, id, model) %>%
+  summarise(RMSE=sqrt(mean((delta-d_obs)^2, na.rm=T))) %>%
+  ggplot(aes(RMSE, fill=model)) + geom_density(alpha=0.5, size=0.25) + 
+  scale_fill_brewer(type="qual") + facet_wrap(~trait) +
+  labs(title=expression(RMSE(delta[est]~~"|"~~d[obs])),
+       subtitle="Across colonies")
+```
+
+```{r d_residuals, echo=F, fig.height=7}
+par(mfrow=c(3,3))
+for(i in seq_along(response_vars)) {
+  obs_resid <- with(filter(clny.sim, sim==1 & 
+                             trait==response_vars[i] & 
+                             !is.na(dlog_obs)), 
+                    dlog_obs-delta_N)
+  plot(density(obs_resid), main=paste0(response_vars[i], ": N"))
+  curve(dnorm(x, mean(obs_resid), sd(obs_resid)), add=T, col="red")
+}
+for(i in seq_along(response_vars)) {
+  obs_resid <- with(filter(clny.sim, sim==1 & 
+                             trait==response_vars[i] & 
+                             !is.na(dlog_obs)), 
+                    dlog_obs-delta_t)
+  plot(density(obs_resid), main=paste0(response_vars[i], ": t"))
+  curve(brms::dstudent_t(x, nu_i, mean(obs_resid), sd(obs_resid)), add=T, col="red")
+}
+par(mfrow=c(1,1)) 
+```
 
 ## Conclusion
 
-Probably good to do, but not sure yet. 
+It seems best to assume that **workers within colonies are distributed normally**. 
 
 
 
