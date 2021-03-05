@@ -1,0 +1,478 @@
+---
+title: "Intra- and interspecific variation in Swiss ants"
+subtitle: "Trait distributions & variance partitioning"
+author: "Tim Szewczyk"
+output:
+  html_document:
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Overview  
+This notebook explores the variance of traits across different levels of biological organization: within colonies, among colonies, among species, and among genera. There are many possibilities for analyses, so this will probably become a rather long notebook.  
+
+
+```{r setup, echo=F}
+# set directory for knitr as main project directory
+knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
+library(tidyverse); library(sf); library(ape); library(nlme); library(lmerTest)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+
+source("code/00_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
+
+gis_dir <- "../2_gis/data/VD_21781/"
+rast_end <- "_VD_21781.tif"
+msr_dir <- "data/img/"
+col_dir <- "data/img/"
+min_clny_size <- 3
+
+trait_match <- data.frame(orig=c("v", 
+                                 "HeadLength", "HeadWidth", 
+                                 "InterocularDistance", "DVE",
+                                 "ScapeLength", "WebersLength",
+                                 "HindTibia", "MidTibia", "MesosomaWidth",
+                                 "MesosomaLength", "HindFemur", "MidFemur",
+                                 "MidLen", "HindLen", "MesoSA", 
+                                 "HeadShape", "PronotExp", "ScapeProp"),
+                          full=c("Color (lightness)", 
+                                 "Head Length", "Head Width",
+                                 "Interocular Dist. (rel)", 
+                                 "Dorsoventral Eye Pos.",
+                                 "Scape Length", "Webers Length",
+                                 "Hind Tibia", "Mid Tibia", "Pronotum Width",
+                                 "Mesosoma Length", "Hind Femur", "Mid Femur",
+                                 "Rel. Leg Length (mid)", 
+                                 "Rel. Leg Length (hind)", 
+                                 "Mesosoma SA", "Head Shape",
+                                 "Pronotal Expansion", "Scape Proportion"),
+                          relative=c(F, 
+                                     F, F,
+                                     T, T, 
+                                     F, F, 
+                                     F, F, F, 
+                                     F, F, F,
+                                     T, T, F, 
+                                     T, T, T))
+focus_traits <- c("Scape Proportion",
+                  "Dorsoventral Eye Pos.", 
+                  "Rel. Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
+
+trts <- readRDS("data/trts.rds")
+
+wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
+  select(-`NA`) %>%
+  mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
+         DVE=InterocularDistance/HeadWidth,
+         InterocularDistance=(HeadWidth-InterocularDistance)/HeadLength,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength) %>%
+  select(one_of("Worker", "TubeNo", "SPECIESID", trait_match$orig)) %>%
+  pivot_longer(cols=3+(seq_along(trait_match$full)), 
+               names_to="Trait", values_to="Value") %>%
+  group_by(Trait, SPECIESID) %>% 
+  mutate(Value_std=scale(Value)[,1]) %>%
+  ungroup %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait_orig=Trait,
+         Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
+  filter(!is.na(Value))
+clny.df <- wkr.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
+  summarise(mnValue=mean(Value, na.rm=T),
+            sdValue=sd(Value, na.rm=T),
+            mnValue_std=mean(Value_std, na.rm=T),
+            sdValue_std=sd(Value_std, na.rm=T))
+
+# plot details
+varPart_cols <- c("Within colonies"="#a6611a", 
+                  "Among colonies"="#dfc27d",
+                  "Among species"="#80cdc1",
+                  "Among genera"="#018571")
+spp_fonts <- theme(axis.text=element_text(size=6))
+gen_fonts <- theme(axis.text=element_text(size=8))
+```
+
+
+
+
+
+----------
+
+
+
+
+
+# Density plots
+
+First, it's worth just looking at the distribution of traits within each species. We can do this for each trait, treating each worker (incorrectly) as an independent measurement.
+
+```{r dens_y, echo=F, message=F, warning=F, fig.height=7}
+wkr.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(Value, SPECIESID, fill=GENUSID)) + 
+  ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  labs(x=expression('Value:'~~y[ijs]), y="", title="Worker traits") + 
+  theme(legend.position="none",
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r dens_ybar, echo=F, message=F, warning=F, fig.height=7}
+clny.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(mnValue, SPECIESID, fill=GENUSID)) + 
+  ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  labs(x=expression('Colony means:'~~bar(y)[js]), y="", 
+       title="Within-colony mean") +
+  theme(legend.position="none",
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r dens_dlog, echo=F, message=F, warning=F, fig.height=7}
+clny.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(log(sdValue), SPECIESID, fill=GENUSID)) + 
+  ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  labs(x=expression('Colony sds:'~~log(d[js])), y="", 
+       title="Within-colony log(sd)") +
+  theme(legend.position="none",
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+
+
+
+
+----------
+
+
+
+
+
+# Variance partitioning
+
+Here is variance partitioning with `ape::varpart()`. 
+
+## Overall
+
+```{r varPart_tot_calc, echo=F, message=F, warning=F}
+Trait_varcomp <- map_dfr(focus_traits, 
+    ~varcomp(lme(Value ~ 1, random=~1|GENUSID/SPECIESID/TubeNo, 
+                 data=filter(wkr.df, Trait==.x & !is.na(Value))), TRUE)) %>%
+  mutate(Trait=focus_traits) %>%
+  rename(`Within colonies`=Within, 
+         `Among colonies`=TubeNo, 
+         `Among species`=SPECIESID,
+         `Among genera`=GENUSID) %>%
+  pivot_longer(-5, names_to="Effect", values_to="Variance") %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute"))
+```
+
+```{r varPart_tot_figs, echo=F, message=F, warning=F}
+Trait_varcomp %>%
+  mutate(Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="", y="Proportion of variance") +
+  theme(legend.position="bottom")
+Trait_varcomp %>%
+  filter(!grepl("genera", Effect)) %>%
+  mutate(Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="", y="Proportion of variance (within genera)") +
+  theme(legend.position="bottom")
+Trait_varcomp %>%
+  filter(grepl("colonies", Effect)) %>%
+  mutate(Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="", y="Proportion of variance (intraspecific)") +
+  theme(legend.position="bottom")
+```
+
+
+## Partitioning by genus
+
+```{r varPart_gen_calc, echo=F, message=F, warning=F}
+gen.trait.df <- expand_grid(Trait=focus_traits, 
+                           GENUSID=unique(wkr.df$GENUSID))
+VC_traitInGen <- map2_dfr(gen.trait.df$Trait, gen.trait.df$GENUSID,
+                          ~varcomp(lme(Value ~ 1, random=~1|SPECIESID/TubeNo,
+                                       data=filter(wkr.df, !is.na(Value) &
+                                                   Trait==.x & GENUSID==.y)),
+                                   TRUE)) %>%
+  bind_cols(gen.trait.df) %>%
+  rename(`Among species`=SPECIESID, 
+         `Among colonies`=TubeNo, `Within colonies`=Within) %>%
+  pivot_longer(1:3, names_to="Effect", values_to="Variance") %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
+         Trait=factor(Trait, levels=focus_traits),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative Traits", "Absolute Traits"))
+```
+
+```{r varPart_gen_figs_1, echo=F, message=F, warning=F, fig.height=4}
+VC_traitInGen %>%
+  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
+  labs(x="", y="Proportion of variance") + 
+  facet_grid(Relative~GENUSID, scales="free", space="free") +
+  theme(legend.position="bottom", legend.text=element_text(size=8)) + gen_fonts
+```
+
+```{r varPart_gen_figs_2, echo=F, message=F, warning=F, fig.height=7, fig.width=4}
+VC_traitInGen %>%
+  ggplot(aes(Variance, Trait, fill=Effect)) + 
+  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=1) + 
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) +
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="Proportion of variance", y="", title="Variance within genera") + 
+  theme(legend.position="bottom", legend.text=element_text(size=8))
+```
+
+
+## Partitioning by species
+
+```{r varPart_sp_calc, echo=F, message=F, warning=F}
+sp.trait.df <- expand_grid(Trait=focus_traits, 
+                           SPECIESID=unique(wkr.df$SPECIESID))
+VC_traitInSpp <- map2_dfr(sp.trait.df$Trait, sp.trait.df$SPECIESID,
+                          ~varcomp(lme(Value ~ 1, random=~1|TubeNo,
+                                       data=filter(wkr.df, !is.na(Value) &
+                                                   Trait==.x & SPECIESID==.y)),
+                                   TRUE)) %>%
+  bind_cols(sp.trait.df) %>%
+  rename(`Among colonies`=TubeNo, `Within colonies`=Within) %>%
+  pivot_longer(1:2, names_to="Effect", values_to="Variance") %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
+         Trait=factor(Trait, levels=focus_traits),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute"))
+```
+
+```{r varPart_sp_figs_1, echo=F, message=F, warning=F, fig.height=6}
+VC_traitInSpp %>%
+  ggplot(aes(SPECIESID, Variance, fill=Effect)) + 
+  geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
+  labs(x="", y="Proportion of variance") + facet_wrap(~Trait, nrow=2) +
+  theme(legend.position="bottom", legend.text=element_text(size=8)) + spp_fonts
+```
+
+```{r varPart_sp_figs_2, echo=F, message=F, warning=F, fig.height=7, fig.width=4}
+VC_traitInSpp %>%
+  ggplot(aes(Variance, Trait, fill=Effect)) + 
+  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=1) + 
+  scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) +
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="Proportion of variance", y="", title="Variance within species") + 
+  theme(legend.position="bottom", legend.text=element_text(size=8))
+```
+
+
+
+
+
+----------
+
+
+
+
+
+# PCA
+
+Here is some PCA.
+
+## Overall
+
+```{r PCA_all, echo=F, message=F, warning=F}
+wkr.df_wide <- wkr.df %>% 
+  select(-Value_std, -Trait_orig) %>%
+  filter(Trait %in% focus_traits) %>%
+  pivot_wider(names_from="Trait", values_from=c("Value")) %>%
+  mutate(el=trts$clny.wide$mnt25[match(TubeNo, trts$clny.wide$TubeNo)])
+complete.df <- wkr.df_wide[complete.cases(wkr.df_wide),]
+
+pc <- prcomp(select(complete.df, all_of(focus_traits)))
+complete.df$PC1 <- pc$x[,1]
+complete.df$PC2 <- pc$x[,2]
+pc_arrows <- tibble(varname=rownames(pc$rotation), 
+                    Relative=trait_match$relative[match(varname, trait_match$full)],
+                    PC1=pc$rotation[,1],
+                    PC2=pc$rotation[,2],
+                    o1=0,
+                    o2=0)
+
+ggplot(complete.df, aes(x=PC1, y=PC2)) + 
+  geom_point(aes(shape=SPECIESID, colour=GENUSID), size=3) + 
+  geom_segment(data=filter(pc_arrows, Relative), aes(xend=o1, yend=o2),
+               colour="red", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_arrows, Relative), colour="red", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+  geom_segment(data=filter(pc_arrows, !Relative), aes(xend=o1, yend=o2),
+               colour="blue", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_arrows, !Relative), colour="blue", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+  scale_shape_manual("Species", 
+                     values=c(LETTERS,
+                              letters)[1:n_distinct(complete.df$SPECIESID)]) +
+  scale_colour_brewer("Genus", type="qual", palette=2) +
+  labs(x=paste0("PC1 (", round(summary(pc)$importance[2,1],3)*100, "%)"),
+       y=paste0("PC2 (", round(summary(pc)$importance[2,2],3)*100, "%)")) +
+    theme(legend.text=element_text(size=8),
+          legend.key.size=unit(3, "mm"),
+          axis.title=element_text(size=10),
+          axis.text=element_blank())
+```
+
+
+## By genus
+
+```{r PCA_genus, echo=F, message=F, warning=F, fig.height=7}
+pca_gen <- pca_cov <- vector("list", n_distinct(complete.df$GENUSID))
+for(i in 1:n_distinct(complete.df$GENUSID)) {
+  gen_i <- unique(complete.df$GENUSID)[i]
+  complete_i <- filter(complete.df, GENUSID==gen_i)
+  pc_i <- prcomp(select(complete_i, all_of(focus_traits)))
+  complete_i$PC1 <- pc_i$x[,1]
+  complete_i$PC2 <- pc_i$x[,2]
+  pca_cov[[i]] <- tibble(varname=rownames(pc_i$rotation), 
+                         Relative=trait_match$relative[match(varname, trait_match$full)],
+                         PC1=pc_i$rotation[,1],
+                         PC2=pc_i$rotation[,2],
+                         o1=0,
+                         o2=0)
+  
+  pca_gen[[i]] <- ggplot(complete_i, aes(x=PC1, y=PC2)) + 
+    geom_point(aes(colour=SPECIESID), size=0.5, alpha=0.7) +
+    ggConvexHull::geom_convexhull(aes(fill=SPECIESID, group=TubeNo), 
+                                  colour=NA, alpha=0.2) + 
+    ggConvexHull::geom_convexhull(aes(colour=SPECIESID, group=SPECIESID), 
+                                  fill=NA) + 
+    geom_segment(data=filter(pca_cov[[i]], Relative), aes(xend=o1, yend=o2),
+                 colour="red", size=0.3,
+                 arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+    geom_text(data=filter(pca_cov[[i]], Relative), colour="red", size=2, 
+              aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+    geom_segment(data=filter(pca_cov[[i]], !Relative), aes(xend=o1, yend=o2),
+                 colour="blue", size=0.3,
+                 arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+    geom_text(data=filter(pca_cov[[i]], !Relative), colour="blue", size=2, 
+              aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+    scale_colour_viridis_d("") + scale_fill_viridis_d("") +
+    xlim(range(c(complete_i$PC1, pca_cov[[i]]$PC1))*1.1) +
+    ylim(range(c(complete_i$PC2, pca_cov[[i]]$PC2))*1.1) +
+    guides(fill=guide_legend(ncol=4, nrow=3), 
+           colour=guide_legend(ncol=4, nrow=3)) +
+    labs(x=paste0("PC1 (", round(summary(pc_i)$importance[2,1],3)*100, "%)"),
+         y=paste0("PC2 (", round(summary(pc_i)$importance[2,2],3)*100, "%)"),
+         title=gen_i) +
+    theme(legend.position="bottom",
+          legend.text=element_text(size=6),
+          legend.key.size=unit(3, "mm"),
+          axis.title=element_text(size=8),
+          axis.text=element_blank(),
+          title=element_text(size=8))
+}
+
+ggpubr::ggarrange(plotlist=pca_gen, ncol=2, nrow=2)
+```
+
+
+## By species
+
+```{r PCA_spp, echo=F, message=FALSE, warning=FALSE, fig.height=6.25}
+pca_spp <- pca_cov <- vector("list", n_distinct(complete.df$SPECIESID))
+
+for(i in 1:n_distinct(complete.df$SPECIESID)) {
+  spp_i <- unique(complete.df$SPECIESID)[i]
+  complete_i <- filter(complete.df, SPECIESID==spp_i)
+  pc_i <- prcomp(select(complete_i, all_of(focus_traits)))
+  complete_i$PC1 <- pc_i$x[,1]
+  complete_i$PC2 <- pc_i$x[,2]
+  pca_cov[[i]] <- tibble(varname=rownames(pc_i$rotation), 
+                         Relative=trait_match$relative[match(varname, trait_match$full)],
+                         PC1=pc_i$rotation[,1],
+                         PC2=pc_i$rotation[,2],
+                         o1=0,
+                         o2=0)
+  
+  pca_spp[[i]] <- ggplot(complete_i, aes(x=PC1, y=PC2)) + 
+    geom_point(size=0.5, alpha=0.7) +
+    ggConvexHull::geom_convexhull(aes(group=TubeNo), colour=NA, alpha=0.3) + 
+    geom_segment(data=filter(pca_cov[[i]], Relative), aes(xend=o1, yend=o2),
+                 colour="red", size=0.3,
+                 arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+    geom_text(data=filter(pca_cov[[i]], Relative), colour="red", size=2, 
+              aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+    geom_segment(data=filter(pca_cov[[i]], !Relative), aes(xend=o1, yend=o2),
+                 colour="blue", size=0.3,
+                 arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+    geom_text(data=filter(pca_cov[[i]], !Relative), colour="blue", size=2, 
+              aes(label=varname, hjust=PC1<0, vjust=PC2<0)) +
+    xlim(range(c(complete_i$PC1, pca_cov[[i]]$PC1))*1.1) +
+    ylim(range(c(complete_i$PC2, pca_cov[[i]]$PC2))*1.1) +
+    labs(x=paste0("PC1 (", round(summary(pc_i)$importance[2,1],3)*100, "%)"),
+         y=paste0("PC2 (", round(summary(pc_i)$importance[2,2],3)*100, "%)"),
+         title=spp_i) +
+    theme(axis.title=element_text(size=8),
+          axis.text=element_blank(),
+          title=element_text(size=8))
+}
+
+ggpubr::ggarrange(plotlist=pca_spp, ncol=2, nrow=2)
+```
+
+
+
