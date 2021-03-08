@@ -334,7 +334,10 @@ Here is some PCA.
 
 ## Overall
 
-```{r PCA_all, echo=F, message=F, warning=F}
+### Workers
+What traits drive differences among workers? Do they separate into clusters based on taxonomy? Relative traits are shown in red, with absolute traits in blue. 
+
+```{r PCA_all_wkr, echo=F, message=F, warning=F}
 wkr.df_wide <- wkr.df %>% 
   select(-Value_std, -Trait_orig) %>%
   filter(Trait %in% focus_traits) %>%
@@ -369,7 +372,133 @@ ggplot(complete.df, aes(x=PC1, y=PC2)) +
                               letters)[1:n_distinct(complete.df$SPECIESID)]) +
   scale_colour_brewer("Genus", type="qual", palette=2) +
   labs(x=paste0("PC1 (", round(summary(pc)$importance[2,1],3)*100, "%)"),
-       y=paste0("PC2 (", round(summary(pc)$importance[2,2],3)*100, "%)")) +
+       y=paste0("PC2 (", round(summary(pc)$importance[2,2],3)*100, "%)"),
+       title="Workers: y") +
+    theme(legend.text=element_text(size=8),
+          legend.key.size=unit(3, "mm"),
+          axis.title=element_text(size=10),
+          axis.text=element_blank())
+```
+
+### $\bar{y}$
+Do colony means show a similar pattern as individual workers? 
+
+```{r PCA_all_ybar, echo=F, message=F, warning=F}
+complete.clny <- complete.df %>% group_by(GENUSID, SPECIESID, TubeNo) %>%
+  summarise(across(where(is.numeric), list(mn=mean, 
+                                           sd=~log(sd(.x)), 
+                                           CV=~log(sd(.x))/mean(.x)))) %>%
+  ungroup
+
+pc_ybar <- prcomp(select(complete.clny, all_of(paste0(focus_traits, "_mn"))))
+complete.clny$PC1_ybar <- pc_ybar$x[,1]
+complete.clny$PC2_ybar <- pc_ybar$x[,2]
+pc_ybar_arrows <- tibble(varname=str_sub(rownames(pc_ybar$rotation), 1, -4), 
+                         Relative=trait_match$relative[match(varname, trait_match$full)],
+                         PC1_ybar=pc_ybar$rotation[,1],
+                         PC2_ybar=pc_ybar$rotation[,2],
+                         o1=0,
+                         o2=0)
+
+ggplot(complete.clny, aes(x=PC1_ybar, y=PC2_ybar)) + 
+  geom_point(aes(shape=SPECIESID, colour=GENUSID), size=3) + 
+  geom_segment(data=filter(pc_ybar_arrows, Relative), aes(xend=o1, yend=o2),
+               colour="red", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_ybar_arrows, Relative), colour="red", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_ybar<0, vjust=PC2_ybar<0)) +
+  geom_segment(data=filter(pc_ybar_arrows, !Relative), aes(xend=o1, yend=o2),
+               colour="blue", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_ybar_arrows, !Relative), colour="blue", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_ybar<0, vjust=PC2_ybar<0)) +
+  scale_shape_manual("Species", 
+                     values=c(LETTERS,
+                              letters)[1:n_distinct(complete.df$SPECIESID)]) +
+  scale_colour_brewer("Genus", type="qual", palette=2) +
+  labs(x=paste0("PC1 (", round(summary(pc_ybar)$importance[2,1],3)*100, "%)"),
+       y=paste0("PC2 (", round(summary(pc_ybar)$importance[2,2],3)*100, "%)"),
+       title=expression('Colony means:'~bar(y))) +
+    theme(legend.text=element_text(size=8),
+          legend.key.size=unit(3, "mm"),
+          axis.title=element_text(size=10),
+          axis.text=element_blank())
+```
+
+### $log(d)$
+Are colonies of different species more or less variable for particular traits? Or are some species or genera more or less variable overall?
+
+```{r PCA_all_dlog, echo=F, message=F, warning=F}
+complete.dlog <- complete.clny[complete.cases(complete.clny),]
+pc_dlog <- prcomp(complete.dlog %>% select(all_of(paste0(focus_traits, "_sd"))))
+complete.dlog$PC1_dlog <- pc_dlog$x[,1]
+complete.dlog$PC2_dlog <- pc_dlog$x[,2]
+pc_dlog_arrows <- tibble(varname=str_sub(rownames(pc_dlog$rotation), 1, -4), 
+                         Relative=trait_match$relative[match(varname, trait_match$full)],
+                         PC1_dlog=pc_dlog$rotation[,1],
+                         PC2_dlog=pc_dlog$rotation[,2],
+                         o1=0,
+                         o2=0)
+
+ggplot(complete.dlog, aes(x=PC1_dlog, y=PC2_dlog)) + 
+  geom_point(aes(shape=SPECIESID, colour=GENUSID), size=3) + 
+  geom_segment(data=filter(pc_dlog_arrows, Relative), aes(xend=o1, yend=o2),
+               colour="red", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_dlog_arrows, Relative), colour="red", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_dlog<0, vjust=PC2_dlog<0)) +
+  geom_segment(data=filter(pc_dlog_arrows, !Relative), aes(xend=o1, yend=o2),
+               colour="blue", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_dlog_arrows, !Relative), colour="blue", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_dlog<0, vjust=PC2_dlog<0)) +
+  scale_shape_manual("Species", 
+                     values=c(LETTERS,
+                              letters)[1:n_distinct(complete.df$SPECIESID)]) +
+  scale_colour_brewer("Genus", type="qual", palette=2) +
+  labs(x=paste0("PC1 (", round(summary(pc_dlog)$importance[2,1],3)*100, "%)"),
+       y=paste0("PC2 (", round(summary(pc_dlog)$importance[2,2],3)*100, "%)"),
+       title=expression('Colony sd:'~log(d))) +
+    theme(legend.text=element_text(size=8),
+          legend.key.size=unit(3, "mm"),
+          axis.title=element_text(size=10),
+          axis.text=element_blank())
+```
+
+### $log(d)/\bar{y}$
+
+```{r PCA_all_CV, echo=F, message=F, warning=F}
+complete.CV <- complete.dlog %>% 
+  mutate("Color (lightness)_CV"=`Color (lightness)_sd`)
+pc_CV <- prcomp(complete.CV %>% select(any_of(paste0(focus_traits, "_CV"))))
+complete.CV$PC1_CV <- pc_CV$x[,1]
+complete.CV$PC2_CV <- pc_CV$x[,2]
+pc_CV_arrows <- tibble(varname=str_sub(rownames(pc_CV$rotation), 1, -4), 
+                         Relative=trait_match$relative[match(varname, trait_match$full)],
+                         PC1_CV=pc_CV$rotation[,1],
+                         PC2_CV=pc_CV$rotation[,2],
+                         o1=0,
+                         o2=0)
+
+ggplot(complete.CV, aes(x=PC1_CV, y=PC2_CV)) + 
+  geom_point(aes(shape=SPECIESID, colour=GENUSID), size=3) + 
+  geom_segment(data=filter(pc_CV_arrows, Relative), aes(xend=o1, yend=o2),
+               colour="red", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_CV_arrows, Relative), colour="red", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_CV<0, vjust=PC2_CV<0)) +
+  geom_segment(data=filter(pc_CV_arrows, !Relative), aes(xend=o1, yend=o2),
+               colour="blue", size=0.3,
+               arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
+  geom_label(data=filter(pc_CV_arrows, !Relative), colour="blue", size=3, alpha=0.5,
+             aes(label=varname, hjust=PC1_CV<0, vjust=PC2_CV<0)) +
+  scale_shape_manual("Species", 
+                     values=c(LETTERS,
+                              letters)[1:n_distinct(complete.df$SPECIESID)]) +
+  scale_colour_brewer("Genus", type="qual", palette=2) +
+  labs(x=paste0("PC1 (", round(summary(pc_CV)$importance[2,1],3)*100, "%)"),
+       y=paste0("PC2 (", round(summary(pc_CV)$importance[2,2],3)*100, "%)"),
+       title=expression('Colony CV:'~log(d)/bar(y))) +
     theme(legend.text=element_text(size=8),
           legend.key.size=unit(3, "mm"),
           axis.title=element_text(size=10),
@@ -473,6 +602,12 @@ for(i in 1:n_distinct(complete.df$SPECIESID)) {
 
 ggpubr::ggarrange(plotlist=pca_spp, ncol=2, nrow=2)
 ```
+
+
+
+
+
+----------
 
 
 
