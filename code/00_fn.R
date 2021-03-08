@@ -366,6 +366,22 @@ save_summaries <- function(out_dir, Y_var, mod_i, mods.lu, out.ls) {
 
 
 
+#' Plot points and linear smoother in GGally
+ggally_pts_smooth <- function(data, mapping, method="lm", se=F,
+                              size_pt=0.4, size_smooth=0.3,
+                              alpha_pt=0.4, alpha_smooth=1, ...) {
+  p <- ggplot(data=data, mapping=mapping) + 
+    geom_point(shape=1, size=size_pt, alpha=alpha_pt) + 
+    geom_smooth(method=method, formula=y~x, se=se, 
+                size=size_smooth, alpha=alpha_smooth)
+  p
+}
+
+
+
+
+
+
 #' Plot of species-standardized color against a chosen variable
 #'
 #' @param tr.df dataframe with color values; currently 'all.sum.wide' in munge_color.R
