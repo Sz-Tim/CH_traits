@@ -139,7 +139,7 @@ wkr.df %>%
   ggplot(aes(Value, SPECIESID, fill=GENUSID)) + 
   ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
   scale_fill_brewer("", type="qual", palette=2) + 
-  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Value:'~~y[ijs]), y="", title="Worker traits") + 
   theme(legend.position="none",
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
@@ -154,7 +154,7 @@ clny.df %>%
   ggplot(aes(mnValue, SPECIESID, fill=GENUSID)) + 
   ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
   scale_fill_brewer("", type="qual", palette=2) + 
-  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Colony means:'~~bar(y)[js]), y="", 
        title="Within-colony mean") +
   theme(legend.position="none",
@@ -170,7 +170,7 @@ clny.df %>%
   ggplot(aes(log(sdValue), SPECIESID, fill=GENUSID)) + 
   ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
   scale_fill_brewer("", type="qual", palette=2) + 
-  facet_wrap(~Trait, scales="free_x", nrow=2) +
+  facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Colony sds:'~~log(d[js])), y="", 
        title="Within-colony log(sd)") +
   theme(legend.position="none",
