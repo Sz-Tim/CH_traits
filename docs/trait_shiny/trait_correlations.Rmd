@@ -1,0 +1,510 @@
+---
+title: "Intra- and interspecific variation in Swiss ants"
+subtitle: "Trait-trait and trait-environment correlations"
+author: "Tim Szewczyk"
+output:
+  html_document:
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+runtime: shiny
+---
+
+
+# Overview  
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
+library(tidyverse); library(sf); library(shiny); library(GGally)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+#' Plot points and linear smoother in GGally
+ggally_pts_smooth <- function(data, mapping, method="lm", se=F,
+                              size_pt=0.4, size_smooth=0.3,
+                              alpha_pt=0.4, alpha_smooth=1, ...) {
+  p <- ggplot(data=data, mapping=mapping) + 
+    geom_point(shape=1, size=size_pt, alpha=alpha_pt) + 
+    geom_smooth(method=method, formula=y~x, se=se, 
+                size=size_smooth, alpha=alpha_smooth)
+  p
+}
+
+min_clny_size <- 3
+
+trait_match <- data.frame(orig=c("v", 
+                                 "HeadLength", "HeadWidth", 
+                                 "InterocularDistance", "DVE",
+                                 "ScapeLength", "WebersLength",
+                                 "HindTibia", "MidTibia", "MesosomaWidth",
+                                 "MesosomaLength", "HindFemur", "MidFemur",
+                                 "MidLen", "HindLen", "MesoSA", 
+                                 "HeadShape", "PronotExp", "ScapeProp"),
+                          full=c("Color (lightness)", 
+                                 "Head Length", "Head Width",
+                                 "Interocular Dist. (rel)", 
+                                 "Dorsoventral Eye Pos.",
+                                 "Scape Length", "Webers Length",
+                                 "Hind Tibia", "Mid Tibia", "Pronotum Width",
+                                 "Mesosoma Length", "Hind Femur", "Mid Femur",
+                                 "Rel. Leg Length (mid)", 
+                                 "Rel. Leg Length (hind)", 
+                                 "Mesosoma SA", "Head Shape",
+                                 "Pronotal Expansion", "Scape Proportion"),
+                          relative=c(F, 
+                                     F, F,
+                                     T, T, 
+                                     F, F, 
+                                     F, F, F, 
+                                     F, F, F,
+                                     T, T, F, 
+                                     T, T, T))
+focus_traits <- c("Scape Proportion",
+                  "Dorsoventral Eye Pos.", 
+                  "Rel. Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
+
+trts <- readRDS("trts.rds")
+trts$clny.wide <- filter(trts$clny.wide, npp > 0)
+
+wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
+  select(-`NA`) %>%
+  mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
+         DVE=InterocularDistance/HeadWidth,
+         InterocularDistance=(HeadWidth-InterocularDistance)/HeadLength,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength) %>%
+  select(one_of("Worker", "TubeNo", "SPECIESID", trait_match$orig)) %>%
+  pivot_longer(cols=3+(seq_along(trait_match$full)), 
+               names_to="Trait", values_to="Value") %>%
+  group_by(Trait, SPECIESID) %>% 
+  mutate(Value_std=scale(Value)[,1]) %>%
+  ungroup %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait_orig=Trait,
+         Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
+  filter(!is.na(Value))
+```
+
+```{r complete_df_setup, echo=F, message=F, warning=F}
+wkr.df_wide <- wkr.df %>% 
+  select(-Value_std, -Trait_orig) %>%
+  filter(Trait %in% focus_traits) %>%
+  pivot_wider(names_from="Trait", values_from=c("Value")) %>%
+  mutate(el=trts$clny.wide$mnt25[match(TubeNo, trts$clny.wide$TubeNo)])
+complete.df <- wkr.df_wide[complete.cases(wkr.df_wide),]
+complete.clny <- complete.df %>% group_by(GENUSID, SPECIESID, TubeNo) %>%
+  summarise(across(where(is.numeric), 
+                   list(mn=mean, sd=~log(sd(.x)), CV=~log(sd(.x))/mean(.x)))) %>%
+  ungroup
+```
+
+
+
+# Correlations
+
+## Trait-trait {.tabset .tabset-fade}  
+
+Be patient with these. The plots are made with the package `GGally` and it isn't the fastest. The first time a tab is opened, `shiny` will display an error until a graph can be produced with the default inputs.
+
+### Worker: y
+
+```{r wkr_trt_trt, echo=FALSE, message=F, warning=F, fig.height=10}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=12,
+             selectInput(inputId="wkrTT",
+                         label="Traits",
+                         choices=as.list(focus_traits),
+                         selected=focus_traits[c(3,8,9)], 
+                         multiple=T))),
+    fluidRow(
+      plotOutput("wkrTT.ggally")
+    )
+  ),
+  server=function(input, output) {
+    wkrTT.df <- reactive({
+      complete.df %>% select(SPECIESID, GENUSID, any_of(input$wkrTT))
+    })
+    output$wkrTT.ggally <- renderPlot({
+      wkrTT.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=450, width=450)
+  },
+  options=list(height=555)
+)
+```
+
+### Colony mean: $\bar{y}$
+
+```{r ybar_trt_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=12,
+             selectInput(inputId="ybarTT",
+                         label="Traits",
+                         choices=as.list(focus_traits),
+                         selected=focus_traits[c(3,8,9)],
+                         multiple=T))),
+    fluidRow(
+      plotOutput("ybarTT.ggally")
+    )
+  ),
+  server=function(input, output) {
+    ybarTT.df <- reactive({
+      complete.clny %>% 
+        select(SPECIESID, GENUSID, any_of(paste0(input$ybarTT, "_mn"))) %>%
+        rename_with(~str_remove(.x, "_mn"), contains("_mn"))
+    })
+    output$ybarTT.ggally <- renderPlot({
+      ybarTT.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=450, width=450)
+  },
+  options=list(height=555)
+)
+```
+
+
+### Colony sd: $log(d)$
+
+```{r dlog_trt_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=12,
+             selectInput(inputId="dlogTT",
+                         label="Traits",
+                         choices=as.list(focus_traits),
+                         selected=focus_traits[c(3,8,9)],
+                         multiple=T))),
+    fluidRow(
+      plotOutput("dlogTT.ggally")
+    )
+  ),
+  server=function(input, output) {
+    dlogTT.df <- reactive({
+      complete.clny %>% 
+        select(SPECIESID, GENUSID, any_of(paste0(input$dlogTT, "_sd"))) %>%
+        rename_with(~str_remove(.x, "_sd"), contains("_sd"))
+    })
+    output$dlogTT.ggally <- renderPlot({
+      dlogTT.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=450, width=450)
+  },
+  options=list(height=555)
+)
+```
+
+
+### Colony CV: $log(d)/\bar{y}$
+
+```{r CV_trt_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=12,
+             selectInput(inputId="CVTT",
+                         label="Traits",
+                         choices=as.list(focus_traits),
+                         selected=focus_traits[c(3,8,9)],
+                         multiple=T))),
+    fluidRow(
+      plotOutput("CVTT.ggally")
+    )
+  ),
+  server=function(input, output) {
+    CVTT.df <- reactive({
+      complete.clny %>% 
+        select(SPECIESID, GENUSID, any_of(paste0(input$CVTT, "_CV"))) %>%
+        rename_with(~str_remove(.x, "_CV"), contains("_CV"))
+    })
+    output$CVTT.ggally <- renderPlot({
+      CVTT.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=450, width=450)
+  },
+  options=list(height=555)
+)
+```
+
+
+
+
+
+
+
+
+## Environment-trait {.tabset .tabset-fade}
+
+### Worker: y
+
+```{r wkr_env_trt, echo=FALSE, message=F, warning=F}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=6,
+             selectInput(inputId="wkrE",
+                  label="Environmental variables",
+                  choices=as.list(names(trts$clny.wide)[c(13,18:21,23:24,27:30)]),
+                  selected=c("TwarmQ", "PwarmQ", "npp", "SampleDate"),
+                  multiple=T)),
+      column(width=3, 
+             selectInput(inputId="wkrT",
+                  label="Traits",
+                  choices=as.list(focus_traits),
+                  selected=focus_traits[1]))),
+    fluidRow(
+      plotOutput("wkrET.ggally")
+    )
+  ),
+  server=function(input, output) {
+    wkrET.df <- reactive({
+      complete.df %>% select(TubeNo, SPECIESID, GENUSID, any_of(input$wkrT)) %>%
+        left_join(., select(trts$clny.wide, TubeNo, any_of(input$wkrE)), 
+                   by="TubeNo") %>%
+        select(SPECIESID, GENUSID, any_of(input$wkrE), any_of(input$wkrT))
+    })
+    output$wkrET.ggally <- renderPlot({
+      wkrET.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=550, width=550)
+  },
+  options=list(height=650)
+)
+```
+
+### Colony mean: $\bar{y}$
+
+```{r ybar_env_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+          column(width=6,
+                 selectInput(inputId="ybarE",
+                  label="Environmental variables",
+                  choices=as.list(names(trts$clny.wide)[c(13,18:21,23:24,27:30)]),
+                  selected=c("TwarmQ", "PwarmQ", "npp", "SampleDate"),
+                  multiple=T)),
+          column(width=3, 
+             selectInput(inputId="ybarT",
+                  label="Traits",
+                  choices=as.list(focus_traits),
+                  selected=focus_traits[1]))),
+    fluidRow(
+      plotOutput("ybarET.ggally")
+    )
+  ),
+  server=function(input, output) {
+    ybarET.df <- reactive({
+      complete.clny %>% 
+        select(TubeNo, SPECIESID, GENUSID, any_of(paste0(input$ybarT, "_mn"))) %>%
+        rename_with(~str_remove(.x, "_mn"), contains("_mn")) %>%
+        left_join(., select(trts$clny.wide, TubeNo, any_of(input$ybarE)), 
+                   by="TubeNo") %>%
+        select(SPECIESID, GENUSID, any_of(input$ybarE), any_of(input$ybarT))
+    })
+    output$ybarET.ggally <- renderPlot({
+      ybarET.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=550, width=550)
+  },
+  options=list(height=650)
+)
+```
+
+
+### Colony sd: $log(d)$
+
+```{r dlog_env_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=6,
+                 selectInput(inputId="dlogE",
+                  label="Environmental variables",
+                  choices=as.list(names(trts$clny.wide)[c(13,18:21,23:24,27:30)]),
+                  selected=c("TwarmQ", "PwarmQ", "npp", "SampleDate"),
+                  multiple=T)),
+      column(width=3, 
+             selectInput(inputId="dlogT",
+                  label="Traits",
+                  choices=as.list(focus_traits),
+                  selected=focus_traits[1]))),
+    fluidRow(
+      plotOutput("dlogET.ggally")
+    )
+  ),
+  server=function(input, output) {
+    dlogET.df <- reactive({
+      complete.clny %>% 
+        select(TubeNo, SPECIESID, GENUSID, any_of(paste0(input$dlogT, "_sd"))) %>%
+        rename_with(~str_remove(.x, "_sd"), contains("_sd")) %>%
+        left_join(., select(trts$clny.wide, TubeNo, any_of(input$dlogE)), 
+                   by="TubeNo") %>%
+        select(SPECIESID, GENUSID, any_of(input$dlogE), any_of(input$dlogT))
+    })
+    output$dlogET.ggally <- renderPlot({
+      dlogET.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=550, width=550)
+  },
+  options=list(height=650)
+)
+```
+
+
+### Colony CV: $log(d)/\bar{y}$
+
+```{r CV_env_trt, echo=FALSE, message=F, warning=F, fig.height=9}
+shinyApp(
+  ui=fluidPage(
+    fluidRow(
+      column(width=6,
+                 selectInput(inputId="CVE",
+                  label="Environmental variables",
+                  choices=as.list(names(trts$clny.wide)[c(13,18:21,23:24,27:30)]),
+                  selected=c("TwarmQ", "PwarmQ", "npp", "SampleDate"),
+                  multiple=T)),
+      column(width=3, 
+             selectInput(inputId="CVT",
+                  label="Traits",
+                  choices=as.list(focus_traits),
+                  selected=focus_traits[1]))),
+    fluidRow(
+      plotOutput("CVET.ggally")
+    )
+  ),
+  server=function(input, output) {
+    CVET.df <- reactive({
+      complete.clny %>% 
+        select(TubeNo, SPECIESID, GENUSID, any_of(paste0(input$CVT, "_CV"))) %>%
+        rename_with(~str_remove(.x, "_CV"), contains("_CV")) %>%
+        left_join(., select(trts$clny.wide, TubeNo, any_of(input$CVE)), 
+                   by="TubeNo") %>%
+        select(SPECIESID, GENUSID, any_of(input$CVE), any_of(input$CVT))
+    })
+    output$CVET.ggally <- renderPlot({
+      CVET.df() %>% 
+        ggpairs(columns=3:ncol(.), 
+                aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+                lower=list(continuous=wrap(ggally_pts_smooth)),
+                diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+                upper=list(continuous=wrap(ggally_cor, digits=2, size=3, 
+                                           family='serif', title="Total")),
+                labeller=label_wrap_gen(15)) + 
+        scale_colour_brewer(type="qual", palette=2) +
+        scale_fill_brewer(type="qual", palette=2) +
+        theme(panel.grid.minor=element_blank(), 
+              panel.grid.major=element_line(colour="grey95", size=0.1), 
+              axis.text=element_blank(), axis.ticks=element_blank(),
+              legend.position="none")
+    }, height=550, width=550)
+  },
+  options=list(height=650)
+)
+```
+
