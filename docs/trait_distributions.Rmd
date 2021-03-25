@@ -31,7 +31,7 @@ knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
 
 ```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
 # libraries, functions, directories
-library(tidyverse); library(sf); library(ape); library(nlme); library(lmerTest)
+library(tidyverse); library(sf); library(VCA); library(magrittr); library(lme4)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
                              panel.grid.major=element_line(colour="gray90",
                                                            size=0.25)))
@@ -112,7 +112,8 @@ clny.df <- wkr.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
 varPart_cols <- c("Within colonies"="#a6611a", 
                   "Among colonies"="#dfc27d",
                   "Among species"="#80cdc1",
-                  "Among genera"="#018571")
+                  "Among genera"="#018571",
+                  "Total"="black")
 spp_fonts <- theme(axis.text=element_text(size=6))
 gen_fonts <- theme(axis.text=element_text(size=8))
 ```
@@ -129,38 +130,74 @@ gen_fonts <- theme(axis.text=element_text(size=8))
 
 # Density plots
 
-First, it's worth just looking at the distribution of traits within each species. We can do this for each trait, treating each worker (incorrectly) as an independent measurement.
+In this section, the distributions of traits are explored, without regard to environmental conditions. I compare the distribution of each trait within each species, including across all workers within each species and across colony means, across colony standard deviations, and across colony coefficients of variation. Lastly, I compare species-level CVs to colony-level CVs to begin to assess the proportion of variation within each species that is found within each colony. 
+
+The questions for this section are:
+
+- Are there traits (or types of traits) that are more variable than others, on average, across species?  
+- Are there species that are more variable than others, on average, across traits?  
+- Is there synechdoche? Are individual colonies representative of the species? Or is there measurable variation between colonies?  
+- Does variability within colonies seem to differ by species or by trait?
+
+
+## Workers: $y_{ijs}$ 
+
+First, it's worth just looking at the distribution of traits within each species. We can do this for each trait, ignoring which workers came from which colony, and just look at the distribution of the traits, $y$.
 
 ```{r dens_y, echo=F, message=F, warning=F, fig.height=7}
-wkr.df %>% 
+wkr_dens <- wkr.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
-         Trait=factor(Trait, levels=focus_traits)) %>%
-  ggplot(aes(Value, SPECIESID, fill=GENUSID)) + 
-  ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
+         Trait=factor(Trait, levels=focus_traits))
+ggplot(wkr_dens, aes(Value, SPECIESID, fill=GENUSID)) + 
+  ggridges::geom_density_ridges(size=0.25, scale=0.95, rel_min_height=0.0001) +
   scale_fill_brewer("", type="qual", palette=2) + 
   facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Value:'~~y[ijs]), y="", title="Worker traits") + 
-  theme(legend.position="none",
+  theme(legend.position=c(0.9, 0.25),
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
   spp_fonts
 ```
 
-```{r dens_ybar, echo=F, message=F, warning=F, fig.height=7}
-clny.df %>% 
+Relative traits (top row) are remarkably uniform for the Myrmicine species. There are perhaps some slight differences among genera for **DVE**, **leg length**, and **pronotal expansion**, while *Myrmica* shows a bit more variation in **scape proportion** across species. **Head shape** is a bit more variable among Myrmicine genera, with *Tetramorium* showing higher values (wider heads). *Lasius* species are generally more variable, within and among species, though the distributions appear to overlap more for **head shape** and **pronotal expansion**, and *L. fuliginosus* stands out as different in terms of **leg length** and **DVE**.
+
+For many traits, many species separate quite clearly. This is particularly true for the absolute traits (bottom row). For Myrmicine genera, there seems to be a strong effect of genus, while *Lasius* is rather variable. The distributions across species mostly are not obviously broader or narrower, with the exception of absolute traits in *Manica*, and again the Formicine genera. *Tetramorium immigrans* seems to separate from other *Tetramorium* species based on size, being slightly larger, and *Tetramorium impurum* separates by color, being slightly lighter. Particularly *Myrmica* species overlap almost entirely in the size-related traits (**head width**, **head length**, and **Weber's length**). *Lasius* species are more distinct, especially *L. fuliginosus*, which stands out from the rest for essentially all traits including color.
+
+Within genera, *Myrmica* species are most variable for **scape proportion** and **head shape**. 
+
+
+## Colony means: $\bar{y}$ 
+
+If we layer on the distribution of the colony means, $\bar{y}_{js}$, we can see whether the workers are distributed much more broadly than the colony means, which would indicate that most of the variation occurs within colonies, or whether the distribution of colony means mirrors that of the workers, which would indicate that the variation among workers is structured among colonies. The distribution of $y_{ijs}$ is partially transparent, and the distribution of $\bar{y}_{js}$ is solid.
+
+```{r dens_ybar_y, echo=F, fig.height=7, message=FALSE, warning=FALSE}
+ybar_dens <- clny.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
-         Trait=factor(Trait, levels=focus_traits)) %>%
-  ggplot(aes(mnValue, SPECIESID, fill=GENUSID)) + 
-  ggridges::geom_density_ridges(size=0.25, rel_min_height=0.0001) +
+         Trait=factor(Trait, levels=focus_traits))
+
+ggplot(ybar_dens, aes(y=SPECIESID, fill=GENUSID)) + 
+  ggridges::geom_density_ridges(aes(x=mnValue), scale=0.95,
+                                size=0.25, rel_min_height=0.0001) +
+  ggridges::geom_density_ridges(data=wkr_dens, aes(x=Value), scale=0.95,
+                                size=0.1, rel_min_height=0.0001, alpha=0.5) +
   scale_fill_brewer("", type="qual", palette=2) + 
   facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Colony means:'~~bar(y)[js]), y="", 
        title="Within-colony mean") +
-  theme(legend.position="none",
+  theme(legend.position=c(0.9, 0.25),
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
   spp_fonts
 ```
+
+For the absolute traits (bottom row), we see that the distributions are almost entirely overlapping. Much of the variation in size and color occurs between colonies. There are many factors that could drive differences among colonies in these traits. For example, different temperatures could lead to faster or slower larval development, or indirectly through productivity and nutritional energy available to larvae. These traits could also vary through the season, with the sampling date interacting with the temperatures. Alternatively, the differences could be genetic, with selective pressure from the differing environments driving differences in mean worker body size, or simply random variation among colonies. 
+
+In contrast, most of the relative traits (top row) show markedly narrower distributions of colony means compared to worker traits. This indicates that for traits like **pronotal expansion**, each colony has workers that are quite variable. This seems to hold across species for these traits, rather than being clustered only within some species. **DVE** and **head shape** seem to be somewhat intermediate, with some differences among colony means. 
+
+
+## Colony sd: $log(d)$ 
+
+We can also look at the distribution of intra-colony standard deviations for each species and trait. I'm not sure this is very telling, aside from maybe the fact that the distributions are so similar across species for each trait.
 
 ```{r dens_dlog, echo=F, message=F, warning=F, fig.height=7}
 clny.df %>% 
@@ -173,14 +210,111 @@ clny.df %>%
   facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
   labs(x=expression('Colony sds:'~~log(d[js])), y="", 
        title="Within-colony log(sd)") +
-  theme(legend.position="none",
+  theme(legend.position=c(0.9, 0.25),
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+
+## Colony CV: $\frac{d}{\bar{y}}$ 
+
+Lastly, we can see the distribution of intra-colony CVs ($\frac{d_{js}}{\bar{y}_{js}}$).
+
+```{r dens_CV, echo=F, message=F, warning=F, fig.height=7}
+sp_CV <- wkr_dens %>% group_by(SPECIESID, GENUSID, Trait) %>%
+  summarise(CV=sd(Value)/mean(Value))
+clny.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  ggplot(aes(sdValue/mnValue, SPECIESID)) + 
+  ggridges::geom_density_ridges(aes(fill=GENUSID), 
+                                size=0.25, rel_min_height=0.0001) +
+  geom_point(data=sp_CV, aes(x=CV), shape="+", size=3) + 
+  scale_fill_brewer("", type="qual", palette=2) + 
+  scale_x_continuous(labels=scales::percent_format(accuracy=1)) +
+  facet_wrap(~Trait, nrow=2, labeller=label_wrap_gen(15)) +
+  labs(x=expression('Intra-colony CV:'~~d[js]/bar(y[js])), y="", 
+       title="Within-colony CV (%)") +
+  theme(legend.position=c(0.9, 0.25),
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+We can see that generally the intra-colony CV is somewhere around 0-10%, which seems fairly low. 
+
+
+```{r scatter_CV, echo=F, message=F, warning=F, fig.height=5}
+clny.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  left_join(., sp_CV, by=c("SPECIESID", "GENUSID", "Trait")) %>%
+  ggplot(aes(CV, sdValue/mnValue)) + 
+  # geom_point() + 
+  geom_boxplot(aes(group=SPECIESID, fill=GENUSID), 
+               width=0.005, position="identity", size=0.25, 
+               alpha=0.5, colour="gray30", outlier.size=0.5, outlier.shape=1) +
+  geom_abline(size=0.25, colour="gray30") +
+  stat_smooth(method="lm", formula=y~x, se=T, colour="black", size=0.5) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  scale_x_continuous(labels=scales::percent_format(accuracy=1), limits=c(0, NA)) +
+  scale_y_continuous(labels=scales::percent_format(accuracy=1), limits=c(0, NA)) +
+  facet_wrap(~Trait, nrow=2, labeller=label_wrap_gen(15), scales="free") +
+  # facet_grid(GENUSID~Trait, labeller=label_wrap_gen(15)) +
+  labs(x=expression('Species-level CV:'~~sd(y[ijs])/mean(y[ijs])),
+       y=expression('Intra-colony CV:'~~d[js]/bar(y[js])), 
+       title="Species-level CV vs. intra-colony CV") +
+  theme(legend.position=c(0.9, 0.25),
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r box_spp_CV, echo=F, message=F, warning=F, fig.height=5}
+sp_CV %>%
+  mutate(Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute")) %>%
+  ggplot(aes(CV, SPECIESID, fill=Relative, colour=GENUSID)) +
+  geom_boxplot(outlier.shape=1, outlier.size=0.5, width=0.5) +
+  scale_colour_brewer("", type="qual", palette=2) + 
+  scale_fill_manual("Trait type", values=c("gray50", "gray90")) +
+  scale_x_continuous(labels=scales::percent_format(accuracy=1)) +
+  labs(x=expression('Species-level CV:'~~sd(y[ijs])/mean(y[ijs])), y="", 
+       title="Species-level CV (%) across all traits") +
+  theme(panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r box2_spp_CV, echo=F, message=F, warning=F, fig.height=5}
+sp_CV %>%
+  mutate(Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute")) %>%
+  ggplot(aes(CV, SPECIESID, fill=GENUSID)) +
+  geom_boxplot(outlier.shape=1, outlier.size=0.5, width=0.5) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  scale_x_continuous(labels=scales::percent_format(accuracy=1)) +
+  facet_grid(GENUSID~Relative, scales="free_y", space="free_y") + 
+  labs(x=expression('Species-level CV:'~~sd(y[ijs])/mean(y[ijs])), y="", 
+       title="Species-level CV (%) across all traits") +
+  theme(panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
   spp_fonts
 ```
 
 
 
 
+## Questions
+
+To revisit the questions for this section:
+
+- Are there traits (or types of traits) that are more variable than others, on average, across species?  
+    - Yes. Absolute traits tend to be more variable, while relative traits are less variable. Worker topology is less pliable than worker scale or color. This is true for all species, based on the coefficients of variation.  
+- Are there species that are more variable than others, on average, across traits?  
+    - Yes. Qualitatively, *Lasius* species are more variable for size-related traits, as well as **relative leg length**, **head shape**, and possibly **pronotal expansion**. For **color**, *Myrmica* species actually have the highest species-level CVs. *Lasius* and *Formica* are also maybe more variable for relative traits. However, this is without statistics.  
+- Is there synechdoche? Are individual colonies representative of the species? Or is there measurable variation between colonies?  
+    - Individual colonies seem to be largely representative of the species for many relative traits. Or at least, the colony means cluster more strongly. For absolute traits, the colony means are distributed very similarly to the overall distributions.  
+- Does variability within colonies seem to differ by species or by trait?  
+    - Yes. Species-level CVs are higher for absolute traits, and particularly color, with values as high as 20%. Intra-colony CV is also very low for some relative traits like **scape proportion**, **DVE**, and **head shape**, but notably higher for **color**.
 
 ----------
 
@@ -190,78 +324,135 @@ clny.df %>%
 
 # Variance partitioning
 
-Here is variance partitioning with `ape::varpart()`. 
+Here is variance partitioning with `VCA::fitVCA()` and confidence intervals calculated with `VCA::VCAinference()`. 
 
 ## Overall
 
 ```{r varPart_tot_calc, echo=F, message=F, warning=F}
-Trait_varcomp <- map_dfr(focus_traits, 
-    ~varcomp(lme(Value ~ 1, random=~1|GENUSID/SPECIESID/TubeNo, 
-                 data=filter(wkr.df, Trait==.x & !is.na(Value))), TRUE)) %>%
-  mutate(Trait=focus_traits) %>%
-  rename(`Within colonies`=Within, 
-         `Among colonies`=TubeNo, 
-         `Among species`=SPECIESID,
-         `Among genera`=GENUSID) %>%
-  pivot_longer(-5, names_to="Effect", values_to="Variance") %>%
+Effect_lu <- tribble(~vca, ~display,
+                     "total", "Total", 
+                     "GENUSID", "Among genera", 
+                     "GENUSID:SPECIESID", "Among species", 
+                     "GENUSID:SPECIESID:TubeNo", "Among colonies", 
+                     "SPECIESID", "Among species", 
+                     "SPECIESID:TubeNo", "Among colonies", 
+                     "TubeNo", "Among colonies",
+                     "error", "Within colonies")
+Trait_VCA <- map_dfr(focus_traits, 
+                 ~fitVCA(Value~GENUSID/SPECIESID/TubeNo,
+                         filter(wkr.df, Trait==.x & !is.na(Value)) %>%
+                           as.data.frame)$aov.tab %>%
+                   as_tibble(rownames="component") %>%
+                   mutate(Trait=.x)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute"))
+Trait_VCA_cvCI <- map_dfr(focus_traits, 
+    ~fitVCA(Value~GENUSID/SPECIESID/TubeNo,
+            filter(wkr.df, Trait==.x & !is.na(Value)) %>% as.data.frame) %>%
+      VCAinference(VarVC=T) %$% ConfInt %$% CV %$% TwoSided %>% #VC, SD, CV
+      as_tibble(rownames="component") %>%
+      mutate(Trait=.x)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
   mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
          Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
                           "Relative", "Absolute"))
 ```
 
-```{r varPart_tot_figs, echo=F, message=F, warning=F}
-Trait_varcomp %>%
+```{r varPart_tot_varPlots, echo=F, message=F, warning=F, fig.height=7}
+walk(focus_traits, 
+    ~varPlot(form=Value~GENUSID/SPECIESID/TubeNo,
+             Data=as.data.frame(filter(wkr.df, Trait==.x & !is.na(Value))),
+             type=3, max.level=10, 
+             BG=list(var="SPECIESID", 
+                     col=paste0("gray", c(90,85))),
+             MeanLine=list(var=c("int", "SPECIESID", "GENUSID"), 
+                      col=c("white", "firebrick3", "dodgerblue"), lwd=c(1,2,2)),
+             Mean=list(pch=1, col="firebrick3", cex=0.3),
+             Points=list(pch=1, cex=0.25, col=rgb(0,0,0,0.5)),
+             VLine=list(var="GENUSID", lty=1, lwd=2, col="gray30"),
+             VarLab=list(cex=0.5, adj=c(0.5,0.5), srt=90), 
+             Title=list(main=.x)))
+```
+
+
+```{r varPart_tot_figs_VCA, echo=F, message=F, warning=F}
+filter(Trait_VCA, Effect != "Total") %>%
   mutate(Trait=factor(Trait, levels=focus_traits)) %>%
-  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  ggplot(aes(Trait, VC, fill=Effect)) + 
   geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
   facet_grid(Relative~., scales="free", space="free") +
   labs(x="", y="Proportion of variance") +
   theme(legend.position="bottom")
-Trait_varcomp %>%
+filter(Trait_VCA, Effect != "Total") %>%
   filter(!grepl("genera", Effect)) %>%
   mutate(Trait=factor(Trait, levels=focus_traits)) %>%
-  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  ggplot(aes(Trait, VC, fill=Effect)) + 
   geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
   facet_grid(Relative~., scales="free", space="free") +
-  labs(x="", y="Proportion of variance (within genera)") +
+  labs(x="", y="Proportion of variance") +
   theme(legend.position="bottom")
-Trait_varcomp %>%
+filter(Trait_VCA, Effect != "Total") %>%
   filter(grepl("colonies", Effect)) %>%
   mutate(Trait=factor(Trait, levels=focus_traits)) %>%
-  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  ggplot(aes(Trait, VC, fill=Effect)) + 
   geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
   facet_grid(Relative~., scales="free", space="free") +
-  labs(x="", y="Proportion of variance (intraspecific)") +
+  labs(x="", y="Proportion of variance") +
   theme(legend.position="bottom")
+ggplot(Trait_VCA_cvCI, aes(y=Trait, colour=Effect)) + 
+  geom_point(data=Trait_VCA, aes(x=`CV[%]`), shape=1, size=0.75, 
+             position=position_dodge(width=0.5)) +
+  geom_errorbarh(aes(xmin=LCL, xmax=UCL), height=0.5,
+                 position=position_dodge(width=0.5)) +
+  scale_colour_manual("", values=varPart_cols, guide=guide_legend(reverse=T)) + 
+  facet_grid(Relative~., scales="free", space="free") +
+  labs(x="CV (95% CI)", y="") 
 ```
+
 
 
 ## Partitioning by genus
 
 ```{r varPart_gen_calc, echo=F, message=F, warning=F}
+gen_multspp <- wkr.df %>% group_by(GENUSID) %>% 
+  summarise(S=n_distinct(SPECIESID)) %>% filter(S>1) %$% GENUSID
 gen.trait.df <- expand_grid(Trait=focus_traits, 
-                           GENUSID=unique(wkr.df$GENUSID))
-VC_traitInGen <- map2_dfr(gen.trait.df$Trait, gen.trait.df$GENUSID,
-                          ~varcomp(lme(Value ~ 1, random=~1|SPECIESID/TubeNo,
-                                       data=filter(wkr.df, !is.na(Value) &
-                                                   Trait==.x & GENUSID==.y)),
-                                   TRUE)) %>%
-  bind_cols(gen.trait.df) %>%
-  rename(`Among species`=SPECIESID, 
-         `Among colonies`=TubeNo, `Within colonies`=Within) %>%
-  pivot_longer(1:3, names_to="Effect", values_to="Variance") %>%
+                           GENUSID=gen_multspp)
+VC_traitInGen <- map2_dfr(
+  gen.trait.df$Trait, gen.trait.df$GENUSID,
+  ~fitVCA(Value~SPECIESID/TubeNo,
+          filter(wkr.df, !is.na(Value) &
+                   Trait==.x & GENUSID==.y) %>%
+            as.data.frame)$aov.tab %>%
+    as_tibble(rownames="component") %>%
+    mutate(Trait=.x, GENUSID=.y)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
   mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
-         Trait=factor(Trait, levels=focus_traits),
          Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
-                          "Relative Traits", "Absolute Traits"))
+                          "Relative", "Absolute"))
+VC_CI_traitInGen <- map2_dfr(
+  gen.trait.df$Trait, gen.trait.df$GENUSID,
+  ~fitVCA(Value~SPECIESID/TubeNo,
+          filter(wkr.df, !is.na(Value) &
+                   Trait==.x & GENUSID==.y) %>% as.data.frame) %>%
+    VCAinference(VarVC=T) %$% ConfInt %$% CV %$% TwoSided %>% #VC, SD, CV
+    as_tibble(rownames="component") %>%
+    mutate(Trait=.x, GENUSID=.y)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute"))
 ```
 
 ```{r varPart_gen_figs_1, echo=F, message=F, warning=F, fig.height=4}
 VC_traitInGen %>%
-  ggplot(aes(Trait, Variance, fill=Effect)) + 
+  filter(Effect != "Total") %>%
+  ggplot(aes(Trait, VC, fill=Effect)) + 
   geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
   labs(x="", y="Proportion of variance") + 
@@ -271,37 +462,63 @@ VC_traitInGen %>%
 
 ```{r varPart_gen_figs_2, echo=F, message=F, warning=F, fig.height=7, fig.width=4}
 VC_traitInGen %>%
-  ggplot(aes(Variance, Trait, fill=Effect)) + 
-  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=1) + 
+  filter(Effect != "Total") %>%
+  ggplot(aes(`%Total`, Trait, fill=Effect)) + 
+  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=100) + 
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) +
   facet_grid(Relative~., scales="free", space="free") +
   labs(x="Proportion of variance", y="", title="Variance within genera") + 
   theme(legend.position="bottom", legend.text=element_text(size=8))
 ```
 
+```{r varPart_gen_figs_3, echo=F, message=F, warning=F, fig.height=4}
+ggplot(VC_CI_traitInGen, aes(y=Trait, colour=Effect)) + 
+  geom_point(data=VC_traitInGen, aes(x=`CV[%]`), shape=1, size=0.75, 
+             position=position_dodge(width=0.5)) +
+  geom_errorbarh(aes(xmin=LCL, xmax=UCL), height=0.5,
+                 position=position_dodge(width=0.5)) +
+  scale_colour_manual("", values=varPart_cols, guide=guide_legend(reverse=T)) + 
+  facet_grid(Relative~GENUSID, scales="free_y", space="free_y") +
+  labs(x="CV (95% CI)", y="") +
+  theme(legend.position="bottom", legend.text=element_text(size=8)) + gen_fonts
+```
+
 
 ## Partitioning by species
-
+We can partition the variance for each species separately, comparing the contribution of colonies to intra-specific variance. For **absolute traits**, there is much more variation among colonies. In many species, the majority of the variance in each absolute trait can be explained by variation among colonies. In contrast, the **relative traits** tend to be less structured among colonies. That is, the distribution of basic ant shapes is relatively invariant among colonies, while traits like size or color tend to vary much more among colonies. Colonies within species may be larger or darker, but knowing the colony gives less information about the worker topology.  
 ```{r varPart_sp_calc, echo=F, message=F, warning=F}
 sp.trait.df <- expand_grid(Trait=focus_traits, 
                            SPECIESID=unique(wkr.df$SPECIESID))
-VC_traitInSpp <- map2_dfr(sp.trait.df$Trait, sp.trait.df$SPECIESID,
-                          ~varcomp(lme(Value ~ 1, random=~1|TubeNo,
-                                       data=filter(wkr.df, !is.na(Value) &
-                                                   Trait==.x & SPECIESID==.y)),
-                                   TRUE)) %>%
-  bind_cols(sp.trait.df) %>%
-  rename(`Among colonies`=TubeNo, `Within colonies`=Within) %>%
-  pivot_longer(1:2, names_to="Effect", values_to="Variance") %>%
+VC_traitInSpp <- map2_dfr(
+  sp.trait.df$Trait, sp.trait.df$SPECIESID,
+  ~fitVCA(Value~TubeNo,
+          filter(wkr.df, !is.na(Value) &
+                   Trait==.x & SPECIESID==.y) %>%
+            as.data.frame)$aov.tab %>%
+    as_tibble(rownames="component") %>%
+    mutate(Trait=.x, SPECIESID=.y)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
   mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
-         Trait=factor(Trait, levels=focus_traits),
+         Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
+                          "Relative", "Absolute"))
+VC_CI_traitInSpp <- map2_dfr(
+  sp.trait.df$Trait, sp.trait.df$SPECIESID,
+  ~fitVCA(Value~TubeNo,
+          filter(wkr.df, !is.na(Value) &
+                   Trait==.x & SPECIESID==.y) %>% as.data.frame) %>%
+    VCAinference(VarVC=T) %$% ConfInt %$% CV %$% TwoSided %>% #VC, SD, CV
+    as_tibble(rownames="component") %>%
+    mutate(Trait=.x, SPECIESID=.y)) %>%
+  mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
+  mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
          Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
                           "Relative", "Absolute"))
 ```
 
 ```{r varPart_sp_figs_1, echo=F, message=F, warning=F, fig.height=6}
 VC_traitInSpp %>%
-  ggplot(aes(SPECIESID, Variance, fill=Effect)) + 
+  filter(Effect != "Total") %>%
+  ggplot(aes(SPECIESID, VC, fill=Effect)) + 
   geom_bar(position="fill", stat="identity", colour="gray30") + coord_flip() +
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) + 
   labs(x="", y="Proportion of variance") + facet_wrap(~Trait, nrow=2) +
@@ -310,12 +527,45 @@ VC_traitInSpp %>%
 
 ```{r varPart_sp_figs_2, echo=F, message=F, warning=F, fig.height=7, fig.width=4}
 VC_traitInSpp %>%
-  ggplot(aes(Variance, Trait, fill=Effect)) + 
-  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=1) + 
+  filter(Effect != "Total") %>%
+  ggplot(aes(`%Total`, Trait, fill=Effect)) + 
+  ggridges::geom_density_ridges(alpha=0.7, scale=0.9, from=0, to=100) + 
   scale_fill_manual("", values=varPart_cols, guide=guide_legend(reverse=TRUE)) +
   facet_grid(Relative~., scales="free", space="free") +
   labs(x="Proportion of variance", y="", title="Variance within species") + 
   theme(legend.position="bottom", legend.text=element_text(size=8))
+```
+
+```{r varPart_sp_figs_3, echo=F, message=F, warning=F, fig.height=7}
+ggplot(VC_CI_traitInSpp, aes(y=SPECIESID, colour=Effect)) + 
+  geom_point(data=VC_traitInSpp, aes(x=`CV[%]`), shape=1, size=0.75, 
+             position=position_dodge(width=0.5)) +
+  geom_errorbarh(aes(xmin=LCL, xmax=UCL), height=0.5,
+                 position=position_dodge(width=0.5)) +
+  scale_colour_manual("", values=varPart_cols, guide=guide_legend(reverse=T)) + 
+  facet_grid(.~Trait, scales="free_x", labeller=label_wrap_gen(12)) +
+  labs(x="CV (95% CI)", y="") +
+  theme(legend.position="bottom", legend.text=element_text(size=8)) + gen_fonts
+```
+
+And we can assess this more rigorously with a GLMM, with logit-linked proportion of variance predicted by *Relative* and random effects for species. Maybe that's the right way to do it...?
+```{r varPart_sp_stats}
+CV_trait.lm <- lmer(
+  `CV[%]` ~ 0 + Trait * Effect + (1|SPECIESID), 
+  data=filter(VC_traitInSpp, Effect != "Total") %>%
+    mutate(Trait=factor(Trait, levels=focus_traits, 
+                        labels=unique(paste0(str_sub(Relative, 1, 3), 
+                                             ": ", Trait)))))
+car::Anova(CV_trait.lm, type="III")
+sjPlot::plot_model(CV_trait.lm, type="int", colors=varPart_cols) + coord_flip() 
+summary(pairs(emmeans::lsmeans(CV_trait.lm, ~Trait * Effect)), type="response")
+
+CV_Rel.lm <- lmer(
+  `CV[%]` ~ 0 + Effect * Relative + (1|SPECIESID), 
+  data=filter(VC_traitInSpp, Effect != "Total"))
+car::Anova(CV_Rel.lm, type="III")
+sjPlot::plot_model(CV_Rel.lm, type="int") + coord_flip() 
+summary(pairs(emmeans::lsmeans(CV_Rel.lm, ~Relative * Effect)), type="response")
 ```
 
 
