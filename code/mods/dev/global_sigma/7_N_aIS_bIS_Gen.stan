@@ -15,6 +15,9 @@ data {
   matrix[N_clny,P_mn] x_mn; // matrix of predictors
   matrix[N_clny,P_sd] x_sd; // matrix of predictors
   real y[N_wkr]; // y vector: observed worker traits
+  int<lower=0> N_pred;  // number of workers
+  matrix[N_pred,P_mn] x_mn_;
+  matrix[N_pred,P_sd] x_sd_;
   
 }
 
@@ -31,17 +34,21 @@ parameters {
   // A ~ mvNorm(alpha, sigma_A)
   // a ~ Norm(A, sigma_a)
   vector[P_sd] alpha;  // intercept and slope for trait_sd
-  cholesky_factor_corr[P_sd] L_a; // cholesky correlation matrix
-  matrix[P_sd,S] z_a; // species specific intercept and slope
+  matrix[P_sd,G] z_A; // species specific intercept and slope, on N(0,1)
+  vector<lower=0>[P_sd] sigma_A; // sd for intercept and slope
+  cholesky_factor_corr[P_sd] L_A; // cholesky correlation matrix
+  matrix[P_sd,S] z_a; // species specific intercept and slope, on N(0,1)
   vector<lower=0>[P_sd] sigma_a; // sd for intercept and slope
   
   // trait_mn slopes: beta, B, a
   // B ~ mvNorm(beta, sigma_B)
   // b ~ Norm(B, sigma_b)
   vector[P_mn] beta; // intercept and slope hyper-priors
+  matrix[P_mn,G] z_B; // species specific intercept and slope, on N(0,1)
+  vector<lower=0>[P_mn] sigma_B; // sd for intercept and slope
+  cholesky_factor_corr[P_mn] L_B; // cholesky correlation matrix
+  matrix[P_mn,S] z_b; // species specific intercept and slope, on N(0,1)
   vector<lower=0>[P_mn] sigma_b; // sd for intercept and slope
-  cholesky_factor_corr[P_mn] L_b; // cholesky correlation matrix
-  matrix[P_mn,S] z_b; // species specific intercept and slope
   
 }
 
@@ -51,11 +58,19 @@ transformed parameters {
   
   vector[N_clny] mu;  // predicted mean
   vector[N_clny] delta;  // predicted sd
+  matrix[P_sd,G] A; // non-centered version of z_A
   matrix[P_sd,S] a; // non-centered version of z_a
+  matrix[P_mn,G] B; // non-centered version of z_B
   matrix[P_mn,S] b; // non-centered version of z_b
   
-  a = diag_pre_multiply(sigma_a, L_a) * z_a;
-  b = diag_pre_multiply(sigma_b, L_b) * z_b;
+  A = diag_pre_multiply(sigma_A, L_A) * z_A;
+  B = diag_pre_multiply(sigma_B, L_B) * z_B;
+  for(p in 1:P_sd) {
+    a[p,] = A[p,tax_i[,2]] + z_a[p,] * sigma_a[p];
+  }
+  for(p in 1:P_mn) {
+    b[p,] = B[p,tax_i[,2]] + z_b[p,] * sigma_b[p];
+  }
 
   for(j in 1:N_clny) {
     mu[j] = x_mn[j,] * (beta + b[,spp_id[j]]);
@@ -76,13 +91,17 @@ model {
   sigma_clny_2_global ~ normal(5, 3);
   
   alpha ~ normal(0, 1);
+  sigma_A ~ normal(0, 1);
   sigma_a ~ normal(0, 1);
-  L_a ~ lkj_corr_cholesky(2);
+  L_A ~ lkj_corr_cholesky(1);
+  to_vector(z_A) ~ normal(0, 1);
   to_vector(z_a) ~ normal(0, 1);
   
   beta ~ normal(0, 1);
+  sigma_B ~ normal(0, 1);
   sigma_b ~ normal(0, 1);
-  L_b ~ lkj_corr_cholesky(2);
+  L_B ~ lkj_corr_cholesky(1);
+  to_vector(z_B) ~ normal(0, 1);
   to_vector(z_b) ~ normal(0, 1);
 
   // likelihood
@@ -101,8 +120,16 @@ generated quantities {
   vector[N_clny] d_log = log(d);
   vector[N_clny] y_bar_pred;
   vector[N_clny] d_pred;
+  // matrix[P_sd,P_sd] Omega_A;
   matrix[P_sd,S] a_mn; 
+  matrix[P_sd,G] A_mn; 
+  // matrix[P_mn,P_mn] Omega_B;
   matrix[P_mn,S] b_mn; 
+  matrix[P_mn,G] B_mn; 
+  matrix[N_pred,S] mu_S_;
+  vector[N_pred] mu_;
+  matrix[N_pred,S] delta_S_;
+  vector[N_pred] delta_;
   
   for(j in 1:N_clny) {
     y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1_global);
@@ -114,11 +141,24 @@ generated quantities {
     y_pred_[i] = normal_rng(y_bar_pred[clny_id[i]], d_pred[clny_id[i]]);
   }
   
+  // Omega_A = multiply_lower_tri_self_transpose(L_A);
+  // Omega_B = multiply_lower_tri_self_transpose(L_B);
   for(p in 1:P_sd) {
     a_mn[p,] = alpha[p] + a[p,];
+    A_mn[p,] = alpha[p] + A[p,];
   }
   for(p in 1:P_mn) {
     b_mn[p,] = beta[p] + b[p,];
+    B_mn[p,] = beta[p] + B[p,];
+  }
+  
+  for(j in 1:N_pred) {
+    for(s in 1:S) {
+      mu_S_[j,s] = x_mn_[j,] * (beta + b[,s]);
+      delta_S_[j,s] = x_sd_[j,] * (alpha + a[,s]);
+    }
+    mu_[j] = mean(mu_S_[j,]);
+    delta_[j] = mean(delta_S_[j,]);
   }
   
 }

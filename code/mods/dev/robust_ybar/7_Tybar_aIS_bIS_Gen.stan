@@ -47,6 +47,8 @@ parameters {
   matrix[P_mn,S] z_b; // species specific intercept and slope, on N(0,1)
   vector<lower=0>[P_mn] sigma_b; // sd for intercept and slope
   
+  real<lower=1, upper=1e2> nu_y_bar;
+  
 }
 
 
@@ -81,8 +83,9 @@ transformed parameters {
 model {
   
   // priors
-  y_bar ~ normal(mu, sigma_clny_1_global);
+  y_bar ~ student_t(nu_y_bar, mu, sigma_clny_1_global);
   sigma_clny_1_global ~ normal(5, 3);
+  nu_y_bar ~ gamma(2, 0.5);
   
   d ~ lognormal(delta, sigma_clny_2_global);
   sigma_clny_2_global ~ normal(5, 3);
@@ -125,7 +128,7 @@ generated quantities {
   matrix[P_mn,G] B_mn; 
   
   for(j in 1:N_clny) {
-    y_bar_pred[j] = normal_rng(mu[j], sigma_clny_1_global);
+    y_bar_pred[j] = student_t_rng(nu_y_bar, mu[j], sigma_clny_1_global);
     d_pred[j] = lognormal_rng(delta[j], sigma_clny_2_global);
   }
   for(i in 1:N_wkr) {
