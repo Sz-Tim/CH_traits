@@ -47,7 +47,7 @@ min_clny_size <- 3
 
 trait_match <- data.frame(orig=c("v", 
                                  "HeadLength", "HeadWidth", 
-                                 "InterocularDistance", "DVE",
+                                 "RelIntOc",
                                  "ScapeLength", "WebersLength",
                                  "HindTibia", "MidTibia", "MesosomaWidth",
                                  "MesosomaLength", "HindFemur", "MidFemur",
@@ -55,26 +55,25 @@ trait_match <- data.frame(orig=c("v",
                                  "HeadShape", "PronotExp", "ScapeProp"),
                           full=c("Color (lightness)", 
                                  "Head Length", "Head Width",
-                                 "Interocular Dist. (rel)", 
-                                 "Dorsoventral Eye Pos.",
+                                 "Interocular Distance",
                                  "Scape Length", "Webers Length",
                                  "Hind Tibia", "Mid Tibia", "Pronotum Width",
                                  "Mesosoma Length", "Hind Femur", "Mid Femur",
-                                 "Rel. Leg Length (mid)", 
-                                 "Rel. Leg Length (hind)", 
+                                 "Leg Length (mid)", 
+                                 "Leg Length (hind)", 
                                  "Mesosoma SA", "Head Shape",
                                  "Pronotal Expansion", "Scape Proportion"),
                           relative=c(F, 
                                      F, F,
-                                     T, T, 
+                                     T, 
                                      F, F, 
                                      F, F, F, 
                                      F, F, F,
                                      T, T, F, 
                                      T, T, T))
 focus_traits <- c("Scape Proportion",
-                  "Dorsoventral Eye Pos.", 
-                  "Rel. Leg Length (hind)",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
                   "Pronotal Expansion",
                   "Head Shape",
                   "Head Width", 
@@ -87,8 +86,7 @@ trts <- readRDS("data/trts.rds")
 wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
   select(-`NA`) %>%
   mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
-         DVE=InterocularDistance/HeadWidth,
-         InterocularDistance=(HeadWidth-InterocularDistance)/HeadLength,
+         RelIntOc=InterocularDistance/HeadWidth,
          HeadShape=HeadWidth/HeadLength,
          PronotExp=MesosomaWidth/WebersLength,
          ScapeProp=ScapeLength/HeadLength) %>%
@@ -159,7 +157,7 @@ ggplot(wkr_dens, aes(Value, SPECIESID, fill=GENUSID)) +
   spp_fonts
 ```
 
-Relative traits (top row) are remarkably uniform for the Myrmicine species. There are perhaps some slight differences among genera for **DVE**, **leg length**, and **pronotal expansion**, while *Myrmica* shows a bit more variation in **scape proportion** across species. **Head shape** is a bit more variable among Myrmicine genera, with *Tetramorium* showing higher values (wider heads). *Lasius* species are generally more variable, within and among species, though the distributions appear to overlap more for **head shape** and **pronotal expansion**, and *L. fuliginosus* stands out as different in terms of **leg length** and **DVE**.
+Relative traits (top row) are remarkably uniform for the Myrmicine species. There are perhaps some slight differences among genera for **relative interocular distance**, **leg length**, and **pronotal expansion**, while *Myrmica* shows a bit more variation in **scape proportion** across species. **Head shape** is a bit more variable among Myrmicine genera, with *Tetramorium* showing higher values (wider heads). *Lasius* species are generally more variable, within and among species, though the distributions appear to overlap more for **head shape** and **pronotal expansion**, and *L. fuliginosus* stands out as different in terms of **leg length** and **relative interocular distance**.
 
 For many traits, many species separate quite clearly. This is particularly true for the absolute traits (bottom row). For Myrmicine genera, there seems to be a strong effect of genus, while *Lasius* is rather variable. The distributions across species mostly are not obviously broader or narrower, with the exception of absolute traits in *Manica*, and again the Formicine genera. *Tetramorium immigrans* seems to separate from other *Tetramorium* species based on size, being slightly larger, and *Tetramorium impurum* separates by color, being slightly lighter. Particularly *Myrmica* species overlap almost entirely in the size-related traits (**head width**, **head length**, and **Weber's length**). *Lasius* species are more distinct, especially *L. fuliginosus*, which stands out from the rest for essentially all traits including color.
 
@@ -192,7 +190,7 @@ ggplot(ybar_dens, aes(y=SPECIESID, fill=GENUSID)) +
 
 For the absolute traits (bottom row), we see that the distributions are almost entirely overlapping. Much of the variation in size and color occurs between colonies. There are many factors that could drive differences among colonies in these traits. For example, different temperatures could lead to faster or slower larval development, or indirectly through productivity and nutritional energy available to larvae. These traits could also vary through the season, with the sampling date interacting with the temperatures. Alternatively, the differences could be genetic, with selective pressure from the differing environments driving differences in mean worker body size, or simply random variation among colonies. 
 
-In contrast, most of the relative traits (top row) show markedly narrower distributions of colony means compared to worker traits. This indicates that for traits like **pronotal expansion**, each colony has workers that are quite variable. This seems to hold across species for these traits, rather than being clustered only within some species. **DVE** and **head shape** seem to be somewhat intermediate, with some differences among colony means. 
+In contrast, most of the relative traits (top row) show markedly narrower distributions of colony means compared to worker traits. This indicates that for traits like **pronotal expansion**, each colony has workers that are quite variable. This seems to hold across species for these traits, rather than being clustered only within some species. **Interocular distance** and **head shape** seem to be somewhat intermediate, with some differences among colony means. 
 
 
 ## Colony sd: $log(d)$ 
@@ -314,7 +312,7 @@ To revisit the questions for this section:
 - Is there synechdoche? Are individual colonies representative of the species? Or is there measurable variation between colonies?  
     - Individual colonies seem to be largely representative of the species for many relative traits. Or at least, the colony means cluster more strongly. For absolute traits, the colony means are distributed very similarly to the overall distributions.  
 - Does variability within colonies seem to differ by species or by trait?  
-    - Yes. Species-level CVs are higher for absolute traits, and particularly color, with values as high as 20%. Intra-colony CV is also very low for some relative traits like **scape proportion**, **DVE**, and **head shape**, but notably higher for **color**.
+    - Yes. Species-level CVs are higher for absolute traits, and particularly color, with values as high as 20%. Intra-colony CV is also very low for some relative traits like **scape proportion**, **relative interocular distance**, and **head shape**, but notably higher for **color**.
 
 ----------
 
