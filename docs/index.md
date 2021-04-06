@@ -16,6 +16,7 @@ This will be updated as the analyses progress and as I get organized.
 - [Model structure considerations](model_structure.html)  
 - [Trait distributions and variance](trait_distributions.html)  
 - [Trait correlations](https://sz-tim.shinyapps.io/CH_traits-correlations/)
+- [Model tests in the `brms` package](model_tests_brms.html)
 
 
 
