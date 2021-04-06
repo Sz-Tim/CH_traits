@@ -283,7 +283,7 @@ ggplot(trts$wkr.std %>% filter(Trait=="WebersLength"), aes(Value, v)) +
   scale_colour_brewer("", type="qual", palette=2)
 
 ggplot(trts$wkr.df %>% filter(Trait=="WebersLength"), aes(Value, v)) +
-  geom_point() + 
+  geom_point(shape=1) + 
   stat_smooth(aes(group=SPECIESID), method="lm", 
               formula=y~x, se=F, size=0.5) +
   stat_smooth(method="lm", formula=y~x, se=F, size=1, colour="red") +
@@ -310,10 +310,10 @@ summary(lmer(mnValue_WebersLength ~ I(mnt25/100) + (1|SPECIESID),
              data=trts$clny.wide))
 
 library(rstanarm); library(projpred)
-glmer_data <- trts$clny.wide[,c(24, 5, 10, 38, 39, 44:46, 52, 55, 59:60)]
-glmer_data <- filter(glmer_data, !is.na(v) & !is.na(v_var))
+glmer_data <- trts$clny.wide[,c(12,10,5,13,16:20,23:26)]
+glmer_data <- glmer_data[complete.cases(glmer_data),]
 glmer_data$v_var <- log(glmer_data$v_var)
-for(i in 2:ncol(glmer_data)) glmer_data[,i] <- scale(glmer_data[,i])
+for(i in 2:(ncol(glmer_data)-3)) glmer_data[,i] <- scale(glmer_data[,i])
 
 var_clps <- paste0(colnames(glmer_data)[-(1:3)], collapse=" + ")
 glmer_formula <- paste(var_clps, "+ (1 + ", var_clps, "| SPECIESID)")
@@ -326,10 +326,10 @@ vs <- varsel(fit_RE)
 solution_terms(vs)[1:(suggest_size(vs)-1)]
 plot(vs, stats=c("elpd", "rmse"))
 
-opt_formula <- paste("v ~ bio1_tmean_8110 + bio9_tdryq_8110 + bio7_tar_8110 + ",
-                     "bio2_dr_8110 + topo + bio15_ps_8110 + south + ",
-                     "(1 + bio1_tmean_8110 + bio9_tdryq_8110 + bio2_dr_8110 + ",
-                     "bio15_ps_8110 + topo | SPECIESID)")
+opt_formula <- paste("v_var ~ AP + aspectN + CnpyMixed + CnpyOpen + GDD0 + ", 
+                     "mnt25 + npp + SampleDate + TAR + ",
+                     "(1 + AP + aspectN + CnpyMixed + GDD0 + mnt25 + npp + ",
+                     "SampleDate + TAR | SPECIESID)")
 opt_RE <- stan_glmer(as.formula(opt_formula),
                      data=glmer_data, cores=4)#, prior=hs())
 plot(opt_RE, pars=c("beta"))

@@ -74,7 +74,7 @@ focus_traits <- c("Color (lightness)", "Webers Length",
                   "Pronotal Expansion", "Scape Proportion")
 
 
-wkr.df_3 <- filter(trts$wkr.wide, n_clny > 3) %>% select(-`NA`) %>%
+wkr.df_3 <- filter(trts$wkr.wide, n_clny > 2) %>% select(-`NA`) %>%
   # filter(GENUSID %in% c("Myrm")) %>%
   mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
          DVE=InterocularDistance/HeadWidth,
@@ -398,7 +398,7 @@ spp_10 <- unique(filter(trts$wkr.wide, n_clny>3)$SPECIESID)
   
   p <- ggplot(complete.df, aes(x=PC1, y=PC2, shape=SPECIESID, colour=GENUSID)) + 
     geom_point(size=3) + 
-    scale_shape_manual(values=LETTERS[1:n_distinct(complete.df$SPECIESID)]) +
+    scale_shape_manual(values=c(LETTERS, letters)[1:n_distinct(complete.df$SPECIESID)]) +
     scale_colour_brewer(type="qual", palette=2) #+ ggtitle(spp_10[i])
   print(p)
 
@@ -411,8 +411,8 @@ pca <- rda(select(complete.df, all_of(focus_traits)))
 {biplot(pca, type=c("text", "points"), cex=1.5)
   ordihull(pca, group=complete.df$SPECIESID, lwd=2,
            col=viridis::viridis_pal()(n_distinct(complete.df$SPECIESID)))
-  legend("topright", col=viridis::viridis_pal()(n_distinct(complete.df$SPECIESID)),
-         lty=1, lwd=2, levels(factor(complete.df$SPECIESID)))
+  legend("bottomleft", col=viridis::viridis_pal()(n_distinct(complete.df$SPECIESID)),
+         cex=0.5, lty=1, lwd=2, levels(factor(complete.df$SPECIESID)))
 }
 
 
@@ -513,6 +513,18 @@ rel.traits.clny %>% #filter(GENUSID %in% c("Lasi")) %>%
   scale_fill_brewer(type="qual", palette=2) 
 
 rel.traits.clny %>% #filter(GENUSID %in% c("Lasi")) %>%
+  select(TubeNo, contains("_mn")) %>% 
+  right_join(select(trts$clny.wide, TubeNo, GENUSID, SPECIESID, 
+                    GDD0, AP, aspectN), .) %>%
+  ggpairs(columns=4:ncol(.), 
+          aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
+          lower=list(continuous=wrap('smooth', shape=1, size=0.5, se=F)),
+          diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+          upper=list(continuous=wrap('cor', size=3))) + 
+  scale_colour_brewer(type="qual", palette=2) +
+  scale_fill_brewer(type="qual", palette=2) 
+
+rel.traits.clny %>% #filter(GENUSID %in% c("Lasi")) %>%
   select(TubeNo, contains("_sd")) %>% 
   mutate(across(contains("_sd"), log)) %>%
   right_join(select(trts$clny.wide, TubeNo, GENUSID, SPECIESID, 
@@ -528,23 +540,11 @@ rel.traits.clny %>% #filter(GENUSID %in% c("Lasi")) %>%
   scale_colour_brewer(type="qual", palette=2) +
   scale_fill_brewer(type="qual", palette=2) 
 
-rel.traits.clny %>% #filter(GENUSID %in% c("Lasi")) %>%
-  select(TubeNo, contains("_mn")) %>% 
-  right_join(select(trts$clny.wide, TubeNo, GENUSID, SPECIESID, 
-                    GDD0, AP, aspectN), .) %>%
-  ggpairs(columns=4:ncol(.), 
-          aes(colour=GENUSID, group=SPECIESID, fill=GENUSID),
-          lower=list(continuous=wrap('smooth', shape=1, size=0.5, se=F)),
-          diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
-          upper=list(continuous=wrap('cor', size=3))) + 
-  scale_colour_brewer(type="qual", palette=2) +
-  scale_fill_brewer(type="qual", palette=2) 
-
 
 
 
 library(vegan)
-pca.data <- filter(complete.rel, !GENUSID %in% c("Form"))
+pca.data <- filter(complete.rel, !GENUSID %in% c("Form", "Lasi"))
 pca.data <- complete.rel %>% filter(GENUSID=="Myrm")
 pca <- rda(pca.data[,-(1:4)])
 
