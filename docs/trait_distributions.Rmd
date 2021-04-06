@@ -773,10 +773,10 @@ for(i in 1:n_distinct(complete.df$GENUSID)) {
   
   pca_gen[[i]] <- ggplot(complete_i, aes(x=PC1, y=PC2)) + 
     geom_point(aes(colour=SPECIESID), size=0.5, alpha=0.7) +
-    ggConvexHull::geom_convexhull(aes(fill=SPECIESID, group=TubeNo), 
-                                  colour=NA, alpha=0.2) + 
-    ggConvexHull::geom_convexhull(aes(colour=SPECIESID, group=SPECIESID), 
-                                  fill=NA) + 
+    # ggConvexHull::geom_convexhull(aes(fill=SPECIESID, group=TubeNo), 
+    #                               colour=NA, alpha=0.2) + 
+    # ggConvexHull::geom_convexhull(aes(colour=SPECIESID, group=SPECIESID), 
+    #                               fill=NA) + 
     geom_segment(data=filter(pca_cov[[i]], Relative), aes(xend=o1, yend=o2),
                  colour="red", size=0.3,
                  arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
@@ -827,7 +827,7 @@ for(i in 1:n_distinct(complete.df$SPECIESID)) {
   
   pca_spp[[i]] <- ggplot(complete_i, aes(x=PC1, y=PC2)) + 
     geom_point(size=0.5, alpha=0.7) +
-    ggConvexHull::geom_convexhull(aes(group=TubeNo), colour=NA, alpha=0.3) + 
+    # ggConvexHull::geom_convexhull(aes(group=TubeNo), colour=NA, alpha=0.3) + 
     geom_segment(data=filter(pca_cov[[i]], Relative), aes(xend=o1, yend=o2),
                  colour="red", size=0.3,
                  arrow=arrow(length=unit(0.1, "cm"), ends="first")) +
