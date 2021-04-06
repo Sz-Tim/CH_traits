@@ -4,33 +4,26 @@
 
 
 library(tidyverse); library(googlesheets); theme_set(theme_bw())
+source("code/00_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
+tax_i <- read_csv("../3_diversity/data/tax_i.csv") %>%
+  mutate(Binomial=paste(FullGen, FullSpp))
 
 
 # temp for merging species lists
 
-ch_tanja <- gs_read(ss=gs_title("Scientific Ant Inventory VD"), ws="Species") %>%
+ch_sp <- gs_read(ss=gs_title("Scientific Ant Inventory VD"), ws="Species") %>%
   filter(!is.na(DESCRIPTEUR)) %>%
   rename(Subfamily=SOUSFAMILLE, Genus=GENRE, 
          Species=ESPECE, Binomial=GENREESPECE) %>%
   select(Subfamily, Genus, Species, Binomial) %>%
   mutate(Tanja_CH=1)
-ch_aline <- read.csv("data/CH_spp_aline.csv") %>% 
-  mutate(Aline_CH_List=1)
-ch_aw <- read.csv("../../prep/CH_sp.csv") %>% 
-  mutate(Binomial=str_trim(paste(Genus, Species, Subspecies)))
-ch_both <- full_join(ch_aw, ch_aline, 
-                     by=c("Subfamily", "Genus", "Species", "Binomial")) %>%
-  full_join(., ch_tanja, by=c("Subfamily", "Genus", "Species", "Binomial"))
-ch_both$AW_CH_List[is.na(ch_both$AW_CH_List)] <- 0
-ch_both$AW_CH_specimen[is.na(ch_both$AW_CH_specimen)] <- 0
-ch_both$AW_Photo[is.na(ch_both$AW_Photo)] <- 0
-ch_both$Aline_CH_List[is.na(ch_both$Aline_CH_List)] <- 0
-write_csv(ch_both, "data/CH_spp.csv")
+ch_obs <- load_ant_data(clean_spp=T)$all %>% st_set_geometry(NULL) %>%
+  group_by(SPECIESID) %>% summarise(N=n()) %>%
+  ungroup %>% mutate(Binomial=str_replace(SPECIESID, "_", " "))
 
 
-ch_sp <- read.csv("data/CH_spp.csv")
-
-
+ch_sp <- tax_i %>% select(Binomial)
 
 ########
 ## Identify overlapping species
@@ -66,6 +59,14 @@ ch_sp$BurchillMoreau <- as.numeric(bm_ch)
 ## Seifert 2018
 seifert <- readxl::read_xlsx("data/lit/seifert2018/seifert.xlsx", 1) %>%
   mutate(Binomial=paste(Genus, Species))
+
+
+## Ant Profiler
+profiler <- read_tsv("~/Desktop/ANTPROFILER.txt") %>%
+  mutate(Binomial=str_replace(Species, "_", " "))
+prof_ch <- tax_i$Binomial %in% unique(profiler$Binomial)
+sum(prof_ch)  # 28
+ch_sp$prof <- as.numeric(prof_ch)
 
 
 
