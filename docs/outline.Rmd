@@ -78,13 +78,28 @@ So in this paper, here are the possible topics to include:
 
 
 # Methods  
-## Model  
+## Data
+### Study Area
+This study focuses on ant species in the canton of Vaud in western Switzerland (46.2–47.0$^{\circ}$N, 6.1–7.2$^{\circ}$E), a topographically heterogeneous region (372–3201m) that includes the Jura mountains in the west, the Alps in the east, and the Swiss plateau centrally (Fig. \ref{fig:VD_map}). Much of the central plateau is dominated by anthropogenic land use, including cropland, vineyards, pastures, and urban areas, with areas of predominantly deciduous forest. The mountainous regions span the forested montane and subalpine zones through the alpine zone, with widespread cattle grazing \citep{Delarze2015,Gago-Silva2017,Beck2017}. 
+
+### Sampling
+Ants were collected during the summer of 2019 in two simultaneous collection efforts (Fig. \ref{fig:VD_map}). First, a citizen science project (Opération Fourmis: https://wp.unil.ch/fourmisvaud/) was organized to survey the ant fauna within the canton of Vaud. Vials of ethanol were distributed to interested citizen scientists, who were asked to collect approximately 10 ant workers per colony for each vial. Participants were encouraged to explore under rocks, on bark, inside twigs, and in downed wood, and an online map was updated periodically to highlight data-sparse areas. Collectors returned the vials along with the collection date and the locality of the sample including the latitude and longitude. For these presence-only data, we discretized the landscape into a 1 km$^2$ grid (3,558 km$^2$) and tallied the number of occurrences for each species in each cell. 
+
+Second, a structured sampling effort collected local colony abundance data, where ants were collected within 44 sites of 1 km$^2$ each, with standardized effort across sites. Thirty-nine of the sites were a part of long-term biodiversity monitoring efforts by the federal government (CITE), and as such were arranged on a regular grid with approximately 5-7 km between adjacent sites. Five additional sites are established monitoring sites by the University of Lausanne. The ants at each site were characterized by 25 plots, distributed among 15 habitat types \citep{Gago-Silva2017} in approximate proportion to the abundance of each habitat, where each habitat type present within the site was represented by at least one plot. Inaccessible areas (e.g., cliffs, water, property beyond Vaud) were excluded, resulting in several sites with areas less than 1 km$^2$, and the number of plots was reduced proportionally (TK total plots; \textbf{Appendix 1}). 
+
+Each sampling plot consisted of a 2m radius circle, with soil temperature recorded in the center at a depth of approximately 6 cm, and vegetation characterized according to Braun-Blanquet coverage classes for grass, forb, shrub, litter, bare, and moss within the plot \citep{Douglas1978}. Six flags were evenly spaced around the circumference. Within $\sim$ 25 cm of each flag (total surface area $\sim$ 1.2 m$^2$), we searched for ant colonies within any downed wood or stumps, under large rocks, and in 2 L of soil, litter, and small rocks using 18 cm Hori Hori gardening knives. We haphazardly collected 10 workers from each colony, placing them directly into vials of ethanol. Within each plot, all trees $\geq$3 cm diameter at breast height were also inspected for ant workers which were collected regardless of whether or not a colony was identifiable. Lastly, transect lines were mapped \emph{a priori}, distributed proportionally among habitat types and totalling 2 km, and surveyed at a moderate pace. Workers were collected from all permanent above-ground mounds within 2 m of the transect line. 
+
+We restricted trait analyses to TK non-polymorphic species with an emphasis on Myrmicine genera. For each species, colonies were subsampled to represent the detected elevational range: the observed colonies were categorized into 100m elevational bins (e.g., 300-400m, 400-500m, etc), and 20 colonies were selected when possible, such that each bin with a detection was represented and the number of colonies per bin was as even as possible. Preference was given to colonies collected via the structured sampling design to reduce the effects of any potential trait-based bias in the collection of workers by citizen scientists. Colonies were originally subsampled following the morphological identification of species. The genus *Tetramorium* was subsequently identified using mitochondrial DNA, resulting in revised species assignments for XX colonies. All colonies were included in the analysis, and so one species (*T. impurum*) was represented by 37 colonies. For each subsampled colony, 4 workers were haphazardly selected when possible for quantification of morphological traits.
+
+### Traits
+These are the traits we used, and this is how they're defined (Table 1). This is the equipment we used to measure them (Appendix with photos).
+
+### Environmental variables
+We used environmental variables from envirem and CHELSA. Here's a description. This is how we categorized canopy. Maybe a justification for why, but that might depend on the framing.
+
+## Distributional Model  
 ### Overview  
-
-This model partitions variation in worker-level traits across multiple biological levels. [Here](https://jrnold.github.io/bayesian_notes/heteroskedasticity.html) is an online reference with some citations for heteroskedastic models. First, workers are distributed within their colony. We assume that the traits of workers within each colony follow a normal distribution about a colony-level mean with a colony-level standard deviation. This is empirically not true for all species, species that are polymorphic or dimorphic. For workers in the minor caste or for workers of monomorphic species, however, this is a reasonable simplifying assumption. 
-
-The colony-level mean and standard deviation may vary with the environment. That's what we're testing. However, there are other factors beyond the available environmental variables that may influence these values, including stochasticity. Thus, we construct separate regressions for the mean and standard deviation, where each includes environmental variables and normally distributed random error. Lastly, we allow each species to respond differently to each environmental variable (i.e., random intercept *and* random slopes), but these responses are taxonomically clustered such that information is shared among species, with greater influence among species within the same genus. 
-
+To assess the change in ant worker traits across the environmental gradient, we used a distributional model that simultaneously estimates the mean and standard deviation of worker traits within each colony. In brief, we assume worker traits are distributed normally within each colony, and that the mean and standard deviation of each colony may be dependent on the environment. We focus on non-polymorphic species where such an assumption is broadly reasonable. Species is treated as a random effect for both intercept and slope, such that each species can respond differently to the environment, but with the estimation of global effects and the ability for hierarchical pooling across taxa.
 
 ### Model structure
 
@@ -94,29 +109,29 @@ The trait value for each worker $i$ is distributed normally within each colony $
   y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
 \end{equation}
 
-where $\bar{y}_{j,s}$ is the intra-colony mean, and $d_{j,s}$ is the intra-colony standard deviation. We use robust regression to predict the underlying relationships between the environment and the colony-level parameters to allow for fatter tails in the residual distributions. Each intra-colony mean is therefore distributed about predicted value $\mu_{j,s}$ based on the environmental conditions such that:
+where $\bar{y}_{j,s}$ is the intra-colony mean, and $d_{j,s}$ is the intra-colony standard deviation. Each intra-colony mean is therefore distributed about predicted value $\mu_{j,s}$ based on the environmental conditions such that:
 
 \begin{equation}
-  \bar{y}_{j,s} \sim Student\text{-}t(\mu_{j,s}, \sigma_{1}, \nu_{1})
+  \bar{y}_{j,s} \sim Normal(\mu_{j,s}, \sigma_{1})
 \end{equation}
 
 \begin{equation}
   \mu_{j,s} = X_j b_s
 \end{equation}
 
-where scale $\sigma_{1}$ and degrees of freedom $\nu_{1}$ are parameters describing the shape of the Student-t distribution, $X$ is a matrix of environmental covariates, and $b$ is a vector of species specific slopes.  
+where $\sigma_{1}$ is the standard deviation, $X$ is a matrix of environmental covariates, and $b$ is a vector of species specific slopes.  
 
 Similarly, the within-colony variation is expected to be a function of the environment. Thus, the standard deviation within each colony $d_{j,s}$ is:
 
 \begin{equation}
-  log(d_{j,s}) \sim Student\text{-}t(\delta_{j,s}, \sigma_{2}, \nu_{2})
+  log(d_{j,s}) \sim Normal(\delta_{j,s}, \sigma_{2})
 \end{equation}
 
 \begin{equation}
   \delta_{j,s} = V_j a_s
 \end{equation}
 
-where scale $\sigma_{2}$ and degrees of freedom $\nu_{2}$ again describe the shape of the Student-t distribution, $V$ is a matrix of environmental covariates, and $a_s$ is a vector of species specific slopes. 
+where $\sigma_{2}$ is the standard deviation, $V$ is a matrix of environmental covariates, and $a_s$ is a vector of species specific slopes. 
 
 Thus, we assume that the both the intra-colony means and standard deviations may vary with environmental conditions. The hierarchical priors on $b$ and $a$ allow for taxonomic clustering among genera:
 
@@ -214,14 +229,14 @@ tribble(
       \\sigma: ? 
       \\end{align*}", 
     "Relative", "Gibb & Parr 2013, Keller et al 2014, Sosiak & Barden 2021",
-  "Dorsoventral Eye Position", "DVE",
+  "Interocular distance", "IO",
     "Interocular distance / HW", 
     "Foraging strategy",
     "\\begin{align*} 
       \\mu: -Temp \\\\ 
       \\sigma: ? 
       \\end{align*}", 
-    "Relative", "Weiser & Kaspari 2006, Narendra et al 2013, Sosiak & Barden 2021",
+    "Relative", "FOR DVE: Weiser & Kaspari 2006, Narendra et al 2013, Sosiak & Barden 2021",
 ) %>% knitr::kable(caption="Table 1. Ant traits included in the analyses.",
                    align=c("l", "c", "l", "l", "c", "c", "l")) %>%
   kable_paper(font_size=11) %>% 
@@ -277,7 +292,7 @@ Sosiak & Barden (2021) also report that relative (scaled) traits are less variab
 We expect that, on average, the variation within each colony will be underestimated. With only four workers from each colony, the sample size is quite small. This biases the standard deviation of the sample downward. For example, say we have a large colony with a trait that follows a standard normal distribution. We can take many samples of 4 workers and calculate the standard deviation of each sample:
 ```{r sim_sd}
 sd_true <- 0.1
-wkr_samples <- map_dbl(1:1e2, ~sd(rnorm(4, 0, sd_true)))
+wkr_samples <- map_dbl(1:1e3, ~sd(rnorm(4, 0, sd_true)))
 
 par(mfrow=c(1,2))
 plot(density(wkr_samples), main="Simulated sd for samples of 4 workers", 
@@ -299,7 +314,7 @@ Thus, we should expect that, on average, the latent predicted within-colony stan
 ```{r sim_sd_sampleSize, message=FALSE}
 sim.df <- expand.grid(N=c(2,3,4,10), 
                       sd_true=seq(0.01, 2, length.out=6), 
-                      sim=1:1e2) %>%
+                      sim=1:1e3) %>%
   pmap_dfr(., function(N, sd_true, sim) tibble(N=N, 
                                                sd_true=sd_true, 
                                                sd_sample=sd(rnorm(N, 0, sd_true)))) %>%
@@ -322,43 +337,8 @@ So this means we would expect that the residuals between $sd(y_{1-4,j,s})$ and $
 
 
 
-## Alternative model formulation
-The above equations could also be re-written in a different formulation that involves fewer equations, though I'm not sure it's more intuitive:
 
-\begin{equation}
-  y_{i,j,s} = X_j b_s + \sigma_{1,s}\epsilon_{1,j} + e^{V_j a_s + \sigma_{2,s}\epsilon_{2,j}}\epsilon_{1,i}  
-\end{equation}
-\begin{equation}
-  \epsilon_{1,j} \sim Norm(0, 1)
-\end{equation}
-\begin{equation}
-  \epsilon_{1,i} \sim Norm(0, 1)
-\end{equation}
-\begin{equation}
-  \epsilon_{2,j} \sim Norm(0, 1)
-\end{equation}
-
-with species-level errors $\epsilon_{1,j}$ and $\epsilon_{2,j}$, and worker-level error $\epsilon_{1,i}$.
-
-It might be clearer to break that up a bit:
-\begin{equation}
-  y_{i,j,s} = \bar{y}_{j,s} + d_{j,s}\epsilon_{1,i}  
-\end{equation}
-\begin{equation}
-  \bar{y}_{j,s} = X_j b_s + \sigma_{1,s}\epsilon_{1,j}
-\end{equation}
-\begin{equation}
-  log(d_{j,s}) = V_j a_s + \sigma_{2,s}\epsilon_{2,j}  
-\end{equation}
-\begin{equation}
-  \epsilon_{1,j} \sim Norm(0, 1)
-\end{equation}
-\begin{equation}
-  \epsilon_{1,i} \sim Norm(0, 1)
-\end{equation}
-\begin{equation}
-  \epsilon_{2,j} \sim Norm(0, 1)
-\end{equation}
+----------
 
 
 
