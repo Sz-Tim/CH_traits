@@ -1,4 +1,7 @@
 
+
+# setup ------------------------------------------------------------------------
+
 library(tidyverse); library(readxl); library(googlesheets); library(rstan)
 options(mc.cores=parallel::detectCores()); rstan_options(auto_write=TRUE)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
@@ -14,6 +17,9 @@ gis_dir <- "../2_gis/data/VD_21781/"
 rast_end <- "_VD_21781.tif"
 msr_dir <- "data/img/"
 col_dir <- "data/img/"
+fig_dir <- "eda/"
+out_dir <- "temp/"
+reload_traits <- TRUE
 
 
 trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
@@ -22,48 +28,61 @@ trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
                     dor=c("MesosomaWidth", "MesosomaLength", 
                           "HindFemur", "MidFemur"))
 
+if(reload_traits) {
+  ant.ls <- load_ant_data(clean_spp=T)
+  ant.ls$all$TubeNo <- str_remove(ant.ls$all$TubeNo, "\\.")
+  
+  ant.ls$all <- ant.ls$all %>% 
+    mutate(SampleDate=lubridate::yday(SampleDate),
+           GENUSID=str_split_fixed(SPECIESID, "_", 2)[,1]) %>%
+    add_covariates(list(mnt25=paste0(gis_dir, "dem", rast_end),
+                        GDD5=paste0(gis_dir, "growingDegDays5_envirem", rast_end),
+                        AP=paste0(gis_dir, "AP_chelsa", rast_end),
+                        TwarmQ=paste0(gis_dir, "TwarmQ_chelsa", rast_end),
+                        PwarmQ=paste0(gis_dir, "PwarmQ_chelsa", rast_end),
+                        PcoldQ=paste0(gis_dir, "PcoldQ_chelsa", rast_end),
+                        minTwarmest=paste0(gis_dir, "minTempWarmest_envirem", rast_end),
+                        aridity=paste0(gis_dir, "aridityIndexThornthwaite_envirem", rast_end),
+                        moisture=paste0(gis_dir, "climaticMoistureIndex_envirem", rast_end),
+                        PET=paste0(gis_dir, "annualPET_envirem", rast_end),
+                        Pseas=paste0(gis_dir, "Pseas_chelsa", rast_end),
+                        Tseas=paste0(gis_dir, "Tseas_chelsa", rast_end),
+                        npp=paste0(gis_dir, "MODIS_2010-2019", rast_end),
+                        TAR=paste0(gis_dir, "TAR_chelsa", rast_end),
+                        aspect=paste0(gis_dir, "aspect", rast_end),
+                        lc=paste0(gis_dir, "lc_21781.tif"))) %>%
+    mutate(aspectN=cos(aspect*pi/180),
+           CnpyClosed=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Closed")*1,
+           CnpyMixed=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Mixed")*1,
+           CnpyOpen=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Open")*1)
+  trts <- load_traits(ant_i=ant.ls$all, msr_dir=msr_dir, col_dir=col_dir, 
+                      na.thresh=0.05, lat_names=trait_names$lat,
+                      fro_names=trait_names$fro, dor_names=trait_names$dor) 
+  trts <- map(trts, ~.x %>% filter(!is.na(SPECIESID)))
+  trts$spp_rng <- trts$clny.wide %>% group_by(SPECIESID) %>% 
+    summarise(lo=min(mnt25), hi=max(mnt25), rng=hi-lo)
+  saveRDS(trts, "data/trts.rds")
+} else {
+  trts <- readRDS("data/trts.rds")
+}
 
-ant.ls <- load_ant_data(clean_spp=T)
-ant.ls$all$TubeNo <- str_remove(ant.ls$all$TubeNo, "\\.")
-
-ant.ls$all <- ant.ls$all %>% 
-  mutate(SampleDate=lubridate::yday(SampleDate),
-         GENUSID=str_split_fixed(SPECIESID, "_", 2)[,1]) %>%
-  add_covariates(list(mnt25=paste0(gis_dir, "dem", rast_end),
-                      GDD0=paste0(gis_dir, "growingDegDays0_envirem", rast_end),
-                      AP=paste0(gis_dir, "AP_chelsa", rast_end),
-                      TwarmQ=paste0(gis_dir, "TwarmQ_chelsa", rast_end),
-                      PwarmQ=paste0(gis_dir, "PwarmQ_chelsa", rast_end),
-                      PcoldQ=paste0(gis_dir, "PcoldQ_chelsa", rast_end),
-                      minTwarmest=paste0(gis_dir, "minTempWarmest_envirem", rast_end),
-                      npp=paste0(gis_dir, "MODIS_2010-2019", rast_end),
-                      TAR=paste0(gis_dir, "TAR_chelsa", rast_end),
-                      aspect=paste0(gis_dir, "aspect", rast_end),
-                      lc=paste0(gis_dir, "lc_21781.tif"))) %>%
-  mutate(aspectN=cos(aspect*pi/180),
-         CnpyClosed=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Closed")*1,
-         CnpyMixed=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Mixed")*1,
-         CnpyOpen=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Open")*1)
-trts <- load_traits(ant_i=ant.ls$all, msr_dir=msr_dir, col_dir=col_dir, 
-                    na.thresh=0.05, lat_names=trait_names$lat,
-                    fro_names=trait_names$fro, dor_names=trait_names$dor)
-trts$spp_rng <- trts$clny.wide %>% group_by(SPECIESID) %>% 
-  summarise(lo=min(mnt25), hi=max(mnt25), rng=hi-lo)
 
 
 
-# model details
-std <- F  # standardize (scale) within each species
+# model details ----------------------------------------------------------------
+std <- T  # standardize (scale) within each species; X still global
+std_method <- 2  # 2: scale cov & traits within spp; 3: scale cov global, traits within spp
 clny_min <- 3
-rng_thresh <- 500
+rng_thresh <- 200
 response_vars <- c("v", 
-                   "HeadWidth", "HeadLength",
-                   "HeadShape",
-                   "DVE",
+                   # "HeadWidth", 
+                   # "HeadLength",
+                   # "HeadShape",
+                   # "DVE",
                    # "ScapeLength",
-                   "WebersLength", 
+                   "WebersLength",
                    "PronotExp",
-                   "ScapeProp",
+                   # "ScapeProp",
                    #"MesosomaWidth", #"MesosomaLength", "MesoSA",
                    # "MidTibia", "MidFemur",
                    # "MidLen",
@@ -73,7 +92,7 @@ X_vars_mn <- c(#GDD="GDD0",
                # Twarm="TwarmQ",
                minTwarm="minTwarmest",
                # AP="AP",
-               # Pwarm="PwarmQ",
+               Pwarm="PwarmQ",
                # Pcold="PcoldQ",
                # NPP="npp",
                # TAR="TAR",
@@ -84,7 +103,7 @@ X_vars_mn <- c(#GDD="GDD0",
                Day="SampleDate") 
 X_vars_sd <- c(#GDD="GDD0",
                # Twarm="TwarmQ",
-               minTwarm="minTwarmest",
+               # minTwarm="minTwarmest",
                # AP="AP",
                # Pwarm="PwarmQ",
                # Pcold="PcoldQ",
@@ -92,7 +111,7 @@ X_vars_sd <- c(#GDD="GDD0",
                # TAR="TAR",
                # North="aspectN",
                # CnpyM="CnpyMixed",
-               # CnpyO="CnpyOpen",
+               CnpyO="CnpyOpen",
                # Elev="mnt25",
                Day="SampleDate") 
 genera_incl <- c("Myrm", 
@@ -101,9 +120,14 @@ genera_incl <- c("Myrm",
                  "Temn",
                  "Tetr",
                  "Lept",
+                 "Form",
                  "Apha"
                  )
 
+
+# wkr.df -----------------------------------------------------------------------
+
+std_ext <- paste0("_std_", ifelse(std, std_method, "F"))
 wkr.df <- trts$wkr.wide %>% 
   mutate(RelIntOc=(HeadWidth-InterocularDistance)/HeadLength,
          DVE=InterocularDistance/HeadWidth,
@@ -115,11 +139,17 @@ wkr.df <- trts$wkr.wide %>%
          one_of(response_vars), one_of(X_vars_mn, X_vars_sd)) #%>%
   # mutate(across(one_of(X_vars_mn, X_vars_sd), ~c(scale(.))))
 if(std) {
-  wkr.df <- wkr.df %>% #group_by(SPECIESID) %>%
-    # mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
-    mutate(across(one_of(X_vars_mn, X_vars_sd), ~c(scale(.)))) %>%
-    group_by(SPECIESID) %>%
-    mutate(across(one_of(response_vars), ~c(scale(.)))) 
+  if(std_method==2) {
+    wkr.df <- wkr.df %>% group_by(SPECIESID) %>%
+      mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
+  } else if(std_method==3) {
+    wkr.df <- wkr.df %>% 
+      mutate(across(one_of(X_vars_mn, X_vars_sd), ~c(scale(.)))) %>%
+      group_by(SPECIESID) %>%
+      mutate(across(one_of(response_vars), ~c(scale(.)))) 
+  } else { 
+    stop("Define std_method") 
+  }
 } else {
   wkr.df <- wkr.df %>% 
     mutate(across(one_of(response_vars, X_vars_mn, X_vars_sd), ~c(scale(.))))
@@ -135,10 +165,11 @@ wkr.df <- wkr.df %>%
   filter(GENUSID %in% genera_incl) %>%
   # filter(!is.na(CnpyOpen)) %>%
   arrange(SPECIESID, TubeNo) 
-write_csv(wkr.df, "data/wkr_df_temp.csv")
+write_csv(wkr.df, paste0("data/wkr_df", std_ext, ".csv"))
 
 
 
+# Y_var loop -------------------------------------------------------------------
 
 for(k in 1:length(response_vars)) {
   
@@ -162,7 +193,8 @@ for(k in 1:length(response_vars)) {
     rename_with(~str_sub(., 1L, -4L), contains("_mn")) %>%
     ungroup %>% arrange(SPECIESID, TubeNo) %>%
     mutate(spp_id=as.numeric(factor(SPECIESID, levels=unique(SPECIESID))))
-  
+  tax.df <- tibble(SPECIESID=unique(wkr.df_i$SPECIESID),
+                   GENUSID=(str_sub(unique(wkr.df_i$SPECIESID),1,4)))
   d.ls <- list(N_clny=nrow(clny.df_i),
                N_wkr=nrow(wkr.df_i),
                S=n_distinct(wkr.df_i$SPECIESID),
@@ -176,185 +208,441 @@ for(k in 1:length(response_vars)) {
                y=wkr.df_i[[Y_var]],
                clny_id=wkr.df_i$clny_id,
                spp_id=clny.df_i$spp_id)
+  d.ls$N_pred <- 1e2
+  n_var <- n_distinct(c(X_vars_mn, X_vars_sd))
+  X_ <- cbind(1, matrix(rnorm(d.ls$N_pred*n_var), ncol=n_var))
+  colnames(X_) <- c("int", unique(c(X_vars_mn, X_vars_sd)))
+  X_[,"CnpyOpen"] <- as.numeric(X_[,"CnpyOpen"]<0.5)
+  d.ls$x_mn_ <- X_[,c("int", X_vars_mn)]
+  d.ls$x_sd_ <- X_[,c("int", X_vars_sd)]
   
   
-  # run models
-  mod_dir <- "code/mods/convergence_trials"
-  mods <- dir(mod_dir, ".stan", full.names=T, recursive=F)
-  mods <- setNames(mods, str_sub(dir(mod_dir, ".stan", recursive=F), 3L, -6L))
-  out <- map(mods, ~stan(., data=d.ls, chains=3, iter=3000, warmup=2000,
-                         control=list(adapt_delta=0.9)))
+  # select models to run
+  mod_dir <- "code/mods"
+  mods <- dir(mod_dir, ".stan", full.names=T, recursive=T)
+  mods <- setNames(mods, str_sub(dir(mod_dir, ".stan", recursive=T), 1L, -6L))
+  mods <- mods[grep("aIS_bIS", mods)]
+  mods <- mods[c(2,3,5)]
+  
+  # run as local job
+  library(rstan); library(tidyverse)
+  options(mc.cores=parallel::detectCores()); rstan_options(auto_write=TRUE)
+  out <- map(mods, ~try(stan(., data=d.ls, chains=3, iter=3000, warmup=2000,
+                             control=list(adapt_delta=0.95))))
+  # out <- out[!map_chr(out, ~class(.x)[1])=="try-error"]  # issue with lower=0
+  
   
   # compare models
   loo_comp <- loo::loo_compare(map(out, loo::loo)); loo_comp
   best <- rownames(loo_comp)[1]
+  
+  # save loo, stanfit for best model
   write.csv(as.data.frame(loo_comp),
-            paste0("eda/loo_", Y_var, ifelse(std, "_std", ""), ".csv"))
-  saveRDS(out[[best]], paste0("eda/0_out_", Y_var, ifelse(std, "_std", ""), ".rds"))
-  f.i <- paste0(Y_var, ifelse(std, "_std", ""), ".pdf")
+            paste0(out_dir, "loo_", Y_var, std_ext, ".csv"))
+  saveRDS(out[[best]], paste0(out_dir, "0_out_", Y_var, std_ext, ".rds"))
+  fig_ext <- paste0(Y_var, std_ext, ".pdf")
 
+  #------------------------------------ EXPERIMENTAL SCRATCH BEGIN -------------
+  
+  library(brms); library(tidybayes); library(modelr)
+  
+  wkr.brms <- brm(bf(
+    as.formula(paste0(Y_var, "~", 
+                      paste0(X_vars_mn, collapse="+"),
+                      "+ (", paste0(X_vars_mn, collapse="+"), "|SPECIESID)",
+                      "+ (1 | ID1 | TubeNo)")
+               ),
+    as.formula(paste0("sigma ~",
+                      paste0(X_vars_sd, collapse="+"),
+                      "+ (1 + ", paste0(X_vars_sd, collapse="+"), "|SPECIESID)",
+                      "+ (1 | ID1 | TubeNo)"))), 
+    data=wkr.df %>% mutate(across(contains("Cnpy"), as.factor)),
+    control=list(adapt_delta=0.9))
+  summary(wkr.brms)
+  sp_re <- as.formula(paste0("~(", paste0(X_vars_mn, collapse="+"), "|SPECIESID)"))
+  bayes_R2(wkr.brms)
+  bayes_R2(wkr.brms, re_form=sp_re)
+  plot(conditional_effects(wkr.brms, re_form=sp_re), ask=F, points=T)
+  pp_check(wkr.brms, nsamples=100)
+  pp_check(wkr.brms, nsamples=100, type="error_scatter_avg_vs_x", x="minTwarmest") 
+  pp_check(wkr.brms, type="intervals_grouped", group="SPECIESID") + 
+    stat_smooth(method="lm", formula=y~x, size=0.5, colour="cadetblue")
+  pp_check(wkr.brms, type="scatter_avg_grouped", group="SPECIESID") + 
+    geom_abline(intercept = 0, slope = 1 , color = "red", lty = 2) 
+  
+  
+  wkr.brms %>%
+    gather_draws(`b_.*`, regex=T) %>%
+    median_hdi(.width=c(0.5, 0.8, 0.95)) %>%
+    ggplot(aes(y=.variable, x=.value, xmin=.lower, xmax=.upper)) +
+    geom_pointinterval()
+  wkr.brms %>%
+    gather_draws(`b_.*`, regex=T) %>%
+    ggplot(aes(y=.variable, x=.value)) +
+    stat_interval(.width=c(0.5, 0.8, 0.9, 0.95), point_interval=median_hdi) +
+    scale_colour_viridis_d(option="E")
+  
+  grid.fit <- wkr.brms$data %>%
+    add_fitted_draws(wkr.brms)
+  ggplot(grid.fit, aes(x=minTwarmest, y=.value)) + 
+    stat_interval(.width=c(0.5, 0.8, 0.9, 0.95, 0.99), 
+                  point_interval=median_hdi, size=1) +
+    geom_point(data=wkr.df, aes(y=v), shape=1, size=0.1, alpha=0.5) +
+    stat_smooth(method="lm", formula=y~x, size=0.25) + 
+    facet_wrap(~SPECIESID) + 
+    scale_colour_brewer("HPDI", type="seq")
+    
+  
+  library(GGally)
+  pred.df <- as_tibble(X_) %>%
+    mutate(mu_=summary(out[[best]], pars="mu_")$summary[,6],
+           delta_=summary(out[[best]], pars="delta_")$summary[,6])
+  js_S <- str_split_fixed(rownames(summary(out[[best]], pars="mu_S_")$summary),
+                          ",", 2)
+  pred_S.df <- tibble(mu_=summary(out[[best]], pars="mu_S_")$summary[,6],
+                      delta_=summary(out[[best]], pars="delta_S_")$summary[,6]) %>%
+    mutate(sppNum=str_remove(js_S[,2], "]"),
+           Species=tax.df$SPECIESID[as.numeric(sppNum)],
+           Genus=tax.df$GENUSID[as.numeric(sppNum)],
+           j=as.numeric(str_split_fixed(js_S[,1], "\\[", 2)[,2])) %>%
+    bind_cols(as_tibble(X_)[.$j,]) 
+  pred_G.df <- pred_S.df %>% group_by(Genus, j) %>% 
+    summarise(across(names(pred.df), mean))
+  
+  ggpairs(pred.df, columns=2:ncol(pred.df))
+  pred_G.df %>% 
+    ggpairs(columns=4:ncol(pred_G.df), 
+            aes(colour=Genus, group=Genus, fill=Genus),
+            lower=list(continuous=wrap('smooth', shape=1, size=0.5, se=F)),
+            diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+            upper=list(continuous=wrap('cor', size=3))) + 
+    scale_colour_brewer(type="qual", palette=2) +
+    scale_fill_brewer(type="qual", palette=2)
+  pred_S.df %>% 
+    ggpairs(columns=c(8:ncol(pred_S.df),1:2), 
+            aes(colour=Species, group=Species, fill=Species),
+            lower=list(continuous=wrap('smooth', shape=1, size=0.5, se=F)),
+            diag=list(continuous=wrap('densityDiag', alpha=0.1, size=0.25)),
+            upper=list(continuous=wrap('cor', size=3))) + 
+    scale_colour_brewer(type="qual", palette=2) +
+    scale_fill_brewer(type="qual", palette=2)
+  
+  #------------------------------------ EXPERIMENTAL SCRATCH END ---------------
+  
+  
+  # model output ---------------------------------------------------------------
+  # parameters to store
+  pars <- c("mu", "y_bar", "delta", "delta_exp", "d", "d_log")
+  pars <- pars[pars %in% out[[best]]@model_pars]
   
   # summarize output
-  pars <- c("mu", "y_bar", "delta", "delta_exp", "d", "d_log")
-  # pars <- c("y_bar", "d", "d_log")
+  mods.lu <- tibble(f=mods, name=names(mods)) %>%
+    mutate(abbr=case_when(grepl("robust_global_sigma", name) ~ "t_y",
+                          grepl("robust_d", name) ~ "t_d",
+                          grepl("robust_ybar", name) ~ "t_ybar",
+                          grepl("robust_clny", name) ~ "t_both",
+                          grepl("^global_sigma", name) ~ "N",
+                          TRUE ~ "unk"),
+           nu=grepl("^t_", abbr))
+  for(i in seq_along(mods)) {
+    mod_i <- mods.lu$name[i]
+    out.clny <- summarise_clny(out[[mod_i]], pars, clny.df_i, trts)
+    out.ls <- list(
+      clny=out.clny,
+      wkr=summarise_wkr(out[[mod_i]], pars, wkr.df_i, out.clny),
+      sigma=summary_hdi(out[[mod_i]], 
+                        paste0("sigma_clny_", 1:2, "_global"), 
+                        varNames=paste0("sigma_clny_", 1:2, "_global"))
+    )
+    if(mods.lu$nu[i]) {
+      nu_i <- grep("nu", out[[mod_i]]@model_pars, value=T)
+      out.ls$nu=summary_hdi(out[[mod_i]], nu_i, varNames=nu_i)
+    }
+    save_summaries(out_dir, Y_var, mod_i, mods.lu, out.ls)
+  }
+
+  out.clny <- summarise_clny(out[[best]], pars, clny.df_i, trts)
+  out.wkr <- summarise_wkr(out[[best]], pars, wkr.df_i, out.clny)
+  out_alpha <- summary_hdi(out[[best]], "alpha", 
+                           varNames=c("int", names(X_vars_sd)))
+  out_beta <- summary_hdi(out[[best]], "beta", 
+                          varNames=c("int", names(X_vars_mn))) 
   
-  out.clny <- clny.df_i %>% ungroup %>%
-    mutate(El_m=trts$clny.wide$mnt25[match(TubeNo, trts$clny.wide$TubeNo)]) %>%
-    bind_cols(map(pars, ~summary_hdi(out[[best]], .x) %>%
-                    set_names(paste0(.x, "_", names(.)))))
-  out.wkr <- wkr.df_i %>% ungroup %>%
-    full_join(select(out.clny, clny_id, all_of(paste0(pars, "_mean"))), 
-              by="clny_id") %>%
-    bind_cols(map(c("y_pred", "y_pred_"), ~summary_hdi(out[[best]], .x) %>%
-                    set_names(paste0(.x, "_", names(.)))))
-  out_alpha <- summary_hdi(out[[best]], "alpha", varNames=c("int", names(X_vars_sd)))
-  out_beta <- summary_hdi(out[[best]], "beta", varNames=c("int", names(X_vars_mn)))
+
+  
 
 
-  
-  
-  
-  
-  # visualize
+
+  # plots: slopes --------------------------------------------------------------
   ## parameter estimates
-  ggplot(filter(out_alpha, !X_var %in% c("int")), 
-         aes(x=X_var, y=median)) + 
-    geom_hline(yintercept=0, colour="gray70") + geom_point(size=3) + 
-    geom_linerange(aes(ymin=L25, ymax=L75), size=1.1) +
-    geom_linerange(aes(ymin=L05, ymax=L95), size=0.5) +
-    geom_errorbar(aes(ymin=L025, ymax=L975), size=0.15, width=0.1) +
-    theme(panel.grid=element_blank(),
-          axis.text.x=element_text(angle=270, hjust=0, vjust=0.5)) +
-    labs(title=paste(Y_var, "sd"), x="", y="") #+ talk_fonts
-  ggsave(paste0("eda/alpha_", f.i), width=3, height=6)
-  ggplot(filter(out_beta, !X_var %in% c("int")), 
-         aes(x=X_var, y=median)) + 
-    geom_hline(yintercept=0, colour="gray70") + geom_point(size=3) + 
-    geom_linerange(aes(ymin=L25, ymax=L75), size=1.1) +
-    geom_linerange(aes(ymin=L05, ymax=L95), size=0.5) +
-    geom_errorbar(aes(ymin=L025, ymax=L975), size=0.15, width=0.1) +
-    theme(panel.grid=element_blank(),
-          axis.text.x=element_text(angle=270, hjust=0, vjust=0.5)) +
-    labs(title=paste(Y_var, "mean"), x="", y="") #+ talk_fonts
-  ggsave(paste0("eda/beta_", f.i), width=3, height=6)
-  
+  # ggplot(filter(out_alpha, !X_var %in% c("int")),
+  #        aes(x=X_var, y=median)) +
+  #   geom_hline(yintercept=0, colour="gray70") + geom_point(size=3) +
+  #   geom_linerange(aes(ymin=L25, ymax=L75), size=1.1) +
+  #   geom_linerange(aes(ymin=L05, ymax=L95), size=0.5) +
+  #   geom_errorbar(aes(ymin=L025, ymax=L975), size=0.15, width=0.1) +
+  #   theme(panel.grid=element_blank(),
+  #         axis.text.x=element_text(angle=270, hjust=0, vjust=0.5)) +
+  #   labs(title=paste(Y_var, "sd:", best), x="", y="") #+ talk_fonts
+  # ggsave(paste0(fig_dir, "alpha_", fig_ext), width=3, height=6)
+  # ggplot(filter(out_beta, !X_var %in% c("int")),
+  #        aes(x=X_var, y=median)) +
+  #   geom_hline(yintercept=0, colour="gray70") + geom_point(size=3) +
+  #   geom_linerange(aes(ymin=L25, ymax=L75), size=1.1) +
+  #   geom_linerange(aes(ymin=L05, ymax=L95), size=0.5) +
+  #   geom_errorbar(aes(ymin=L025, ymax=L975), size=0.15, width=0.1) +
+  #   theme(panel.grid=element_blank(),
+  #         axis.text.x=element_text(angle=270, hjust=0, vjust=0.5)) +
+  #   labs(title=paste(Y_var, "mean:", best), x="", y="") #+ talk_fonts
+  # ggsave(paste0(fig_dir, "beta_", fig_ext), width=3, height=6)
+
   if(any(grepl("^a_mn", names(out[[best]])))) {
+    a_post <- as.data.frame(out[[best]]) %>% select(contains("a_mn")) %>%
+      pivot_longer(everything(), names_to="spar", values_to="post") %>%
+      mutate(sNum=str_remove(str_split_fixed(spar, ",", 2)[,2], "]"), 
+             pNum=str_split_fixed(str_split_fixed(spar, ",", 2)[,1], "\\[", 2)[,2],
+             spp=unique(clny.df_i$SPECIESID)[as.numeric(sNum)],
+             gen=str_split_fixed(spp, "_", 2)[,1],
+             parName=c("int", names(X_vars_sd))[as.numeric(pNum)])
+    ggplot(a_post, aes(x=post, y=parName, group=paste0(spp, parName), colour=gen)) + 
+      ggridges::geom_density_ridges(fill=NA) +
+      geom_vline(xintercept=0, colour="gray90") +
+      scale_colour_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Species slopes", y="", title=paste(Y_var, "sd:", best))
+    ggsave(paste0(fig_dir, "a_post_", fig_ext), width=5.25, height=5)
+    
     out_a <- summary_hdi(out[[best]], "a_mn")
     n_a_pars <- nrow(out_a)/d.ls$S
-    out_a %>%
+    out_a <- out_a %>%
       mutate(spp=rep(unique(clny.df_i$SPECIESID), n_a_pars),
-             par=rep(1:n_a_pars, each=d.ls$S), 
-             parName=rep(colnames(d.ls$x_sd)[1:n_a_pars], each=d.ls$S)) %>%
-      ggplot(aes(x=mean, y=spp)) + 
-      geom_vline(xintercept=0, colour="gray90") + 
-      geom_point(alpha=0.9, size=2) + 
+             par=rep(1:n_a_pars, each=d.ls$S),
+             parName=rep(c("int", names(X_vars_sd))[1:n_a_pars], each=d.ls$S))
+    out_a %>%
+      ggplot(aes(x=mean, y=spp)) +
+      geom_vline(xintercept=0, colour="gray90") +
+      geom_point(alpha=0.9, size=2) +
       geom_linerange(aes(xmin=L25, xmax=L75), size=1.1) +
       geom_linerange(aes(xmin=L05, xmax=L95), size=0.5) +
       geom_errorbar(aes(xmin=L025, xmax=L975), size=0.15, width=0.1) +
-      theme(panel.grid.major.x=element_blank()) + 
+      theme(panel.grid.major.x=element_blank()) +
       facet_wrap(~parName, scales="free_x") +
-      labs(x="Mean species slopes: Trait sd", y="", title=Y_var)
-    ggsave(paste0("eda/a_", f.i), width=5.25, height=5)
+      labs(x="Mean species slopes", y="", title=paste(Y_var, "sd:", best))
+    ggsave(paste0(fig_dir, "a_", fig_ext), width=5.25, height=5)
+    out_a %>%
+      filter(parName != "int") %>%
+      ggplot(aes(x=median, y=parName)) +
+      ggridges::geom_density_ridges(aes(fill=parName), alpha=0.5, size=0.25, scale=1) +
+      geom_vline(xintercept=0, colour="gray30") +
+      geom_point(data=filter(out_alpha, X_var != "int"), aes(y=X_var),
+                 position=position_nudge(y=-0.05), shape=1) +
+      geom_linerange(data=filter(out_alpha, X_var != "int"), 
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L25, xmax=L75), size=1) +
+      geom_linerange(data=filter(out_alpha, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L05, xmax=L95), size=0.5) +
+      geom_errorbarh(data=filter(out_alpha, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L025, xmax=L975), height=0.1, size=0.15) +
+      scale_fill_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Median species slope", y="", title=paste(Y_var, "sd:", best))
+    ggsave(paste0(fig_dir, "a_dens_", fig_ext), width=5.25, height=5)
   }
   if(any(grepl("^A_mn", names(out[[best]])))) {
-    out_A <- summary_hdi(out[[best]], "A_mn")
+    out_A <- summary_hdi(out[[best]], "A_mn") 
     n_A_pars <- nrow(out_A)/d.ls$G
+    out_A <- out_A %>%
+      mutate(gen=rep(unique(str_split_fixed(clny.df_i$SPECIESID, "_", 2)[,1]),
+                     n_A_pars),
+             par=rep(1:n_A_pars, each=d.ls$G),
+             parName=rep(c("int", names(X_vars_sd))[1:n_A_pars], each=d.ls$G)) 
     out_A %>%
-      mutate(gen=rep(unique(str_split_fixed(clny.df_i$SPECIESID, "_", 2)[,1]), n_A_pars),
-             par=rep(1:n_A_pars, each=d.ls$G), 
-             parName=rep(colnames(d.ls$x_sd)[1:n_A_pars], each=d.ls$G)) %>%
-      ggplot(aes(x=mean, y=gen)) + 
-      geom_vline(xintercept=0, colour="gray90") + 
-      geom_point(alpha=0.9, size=2) + 
+      ggplot(aes(x=median, y=gen)) +
+      geom_vline(xintercept=0, colour="gray90") +
+      geom_point(alpha=0.9, size=2) +
       geom_linerange(aes(xmin=L25, xmax=L75), size=1.1) +
       geom_linerange(aes(xmin=L05, xmax=L95), size=0.5) +
       geom_errorbar(aes(xmin=L025, xmax=L975), size=0.15, width=0.1) +
-      theme(panel.grid.major.x=element_blank()) + 
+      theme(panel.grid.major.x=element_blank()) +
       facet_wrap(~parName, scales="free_x") +
-      labs(x="Mean genus slopes: Trait sd", y="", title=Y_var)
-    ggsave(paste0("eda/Ag_", f.i), width=5.25, height=5)
+      labs(x="Median genus slopes", y="", title=paste(Y_var, "sd:", best))
+    ggsave(paste0(fig_dir, "Ag_", fig_ext), width=5.25, height=5)
+    out_A %>%
+      filter(parName != "int") %>%
+      ggplot(aes(x=median, y=parName)) +
+      ggridges::geom_density_ridges(aes(fill=parName), alpha=0.5, size=0.25, scale=1) +
+      geom_vline(xintercept=0, colour="gray30") +
+      geom_point(data=filter(out_alpha, X_var != "int"), aes(y=X_var),
+                 position=position_nudge(y=-0.05), shape=1) +
+      geom_linerange(data=filter(out_alpha, X_var != "int"), 
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L25, xmax=L75), size=1) +
+      geom_linerange(data=filter(out_alpha, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L05, xmax=L95), size=0.5) +
+      geom_errorbarh(data=filter(out_alpha, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L025, xmax=L975), height=0.1, size=0.15) +
+      scale_fill_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Median genus slope", y="", title=paste(Y_var, "sd:", best))
+    ggsave(paste0(fig_dir, "Ag_dens_", fig_ext), width=5.25, height=5)
   }
   if(any(grepl("^b_mn", names(out[[best]])))) {
+    b_post <- as.data.frame(out[[best]]) %>% select(contains("b_mn")) %>%
+      pivot_longer(everything(), names_to="spar", values_to="post") %>%
+      mutate(sNum=str_remove(str_split_fixed(spar, ",", 2)[,2], "]"), 
+             pNum=str_split_fixed(str_split_fixed(spar, ",", 2)[,1], "\\[", 2)[,2],
+             spp=unique(clny.df_i$SPECIESID)[as.numeric(sNum)],
+             gen=str_split_fixed(spp, "_", 2)[,1],
+             parName=c("int", names(X_vars_mn))[as.numeric(pNum)])
+    ggplot(b_post, aes(x=post, y=parName, group=paste0(spp, parName), colour=gen)) + 
+      geom_vline(xintercept=0, colour="gray90") +
+      ggridges::geom_density_ridges(fill=NA) +
+      scale_colour_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Species slopes", y="", title=paste(Y_var, "mn:", best))
+    ggsave(paste0(fig_dir, "b_post", fig_ext), width=5.25, height=5)
+    
     out_b <- summary_hdi(out[[best]], "b_mn")
     n_b_pars <- nrow(out_b)/d.ls$S
     out_b %>%
       mutate(spp=rep(unique(clny.df_i$SPECIESID), n_b_pars),
-             par=rep(1:n_b_pars, each=d.ls$S), 
-             parName=rep(colnames(d.ls$x_mn)[1:n_b_pars], each=d.ls$S)) %>%
-      ggplot(aes(x=mean, y=spp)) + 
-      geom_vline(xintercept=0, colour="gray90") + 
-      geom_point(alpha=0.9, size=2) + 
+             par=rep(1:n_b_pars, each=d.ls$S),
+             parName=rep(c("int", names(X_vars_mn))[1:n_b_pars], each=d.ls$S)) %>%
+      ggplot(aes(x=median, y=spp)) +
+      geom_vline(xintercept=0, colour="gray90") +
+      geom_point(alpha=0.9, size=2) +
       geom_linerange(aes(xmin=L25, xmax=L75), size=1.1) +
       geom_linerange(aes(xmin=L05, xmax=L95), size=0.5) +
       geom_errorbar(aes(xmin=L025, xmax=L975), size=0.15, width=0.1) +
-      theme(panel.grid.major.x=element_blank()) + 
+      theme(panel.grid.major.x=element_blank()) +
       facet_wrap(~parName, scales="free_x") +
-      labs(x="Mean species slopes: Trait mean", y="", title=Y_var)
-    ggsave(paste0("eda/b_", f.i), width=5.25, height=5)
+      labs(x="Median species slopes", y="", title=paste(Y_var, "mean:", best))
+    ggsave(paste0(fig_dir, "b_", fig_ext), width=5.25, height=5)
+    out_b %>%
+      mutate(spp=rep(unique(clny.df_i$SPECIESID), n_b_pars),
+             par=rep(1:n_b_pars, each=d.ls$S),
+             parName=rep(c("int", names(X_vars_mn))[1:n_b_pars], each=d.ls$S)) %>%
+      filter(parName != "int") %>%
+      ggplot(aes(x=median, y=parName)) +
+      ggridges::geom_density_ridges(aes(fill=parName), alpha=0.5, size=0.25, scale=1) +
+      geom_vline(xintercept=0, colour="gray30") +
+      geom_point(data=filter(out_beta, X_var != "int"), aes(y=X_var),
+                 position=position_nudge(y=-0.05), shape=1) +
+      geom_linerange(data=filter(out_beta, X_var != "int"), 
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L25, xmax=L75), size=1) +
+      geom_linerange(data=filter(out_beta, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L05, xmax=L95), size=0.5) +
+      geom_errorbarh(data=filter(out_beta, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L025, xmax=L975), height=0.1, size=0.15) +
+      scale_fill_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Median species slope", y="", title=paste(Y_var, "mean:", best))
+    ggsave(paste0(fig_dir, "b_dens_", fig_ext), width=5.25, height=5)
   }
   if(any(grepl("^B_mn", names(out[[best]])))) {
     out_B <- summary_hdi(out[[best]], "B_mn")
     n_B_pars <- nrow(out_B)/d.ls$G
     out_B %>%
-      mutate(gen=rep(unique(str_split_fixed(clny.df_i$SPECIESID, "_", 2)[,1]), n_B_pars),
-             par=rep(1:n_B_pars, each=d.ls$G), 
-             parName=rep(colnames(d.ls$x_mn)[1:n_B_pars], each=d.ls$G)) %>%
-      ggplot(aes(x=mean, y=gen)) + 
-      geom_vline(xintercept=0, colour="gray90") + 
-      geom_point(alpha=0.9, size=2) + 
+      mutate(gen=rep(unique(str_split_fixed(clny.df_i$SPECIESID, "_", 2)[,1]),
+                     n_B_pars),
+             par=rep(1:n_B_pars, each=d.ls$G),
+             parName=rep(c("int", names(X_vars_mn))[1:n_B_pars], each=d.ls$G)) %>%
+      ggplot(aes(x=median, y=gen)) +
+      geom_vline(xintercept=0, colour="gray90") +
+      geom_point(alpha=0.9, size=2) +
       geom_linerange(aes(xmin=L25, xmax=L75), size=1.1) +
       geom_linerange(aes(xmin=L05, xmax=L95), size=0.5) +
       geom_errorbar(aes(xmin=L025, xmax=L975), size=0.15, width=0.1) +
-      theme(panel.grid.major.x=element_blank()) + 
+      theme(panel.grid.major.x=element_blank()) +
       facet_wrap(~parName, scales="free_x") +
-      labs(x="Mean genus slopes: Trait mn", y="", title=Y_var)
-    ggsave(paste0("eda/Bg_", f.i), width=5.25, height=5)
+      labs(x="Mean genus slopes", y="", title=paste(Y_var, "mean:", best))
+    ggsave(paste0(fig_dir, "Bg_", fig_ext), width=5.25, height=5)
+    out_B %>%
+      mutate(gen=rep(unique(str_split_fixed(clny.df_i$SPECIESID, "_", 2)[,1]),
+                     n_B_pars),
+             par=rep(1:n_B_pars, each=d.ls$G),
+             parName=rep(c("int", names(X_vars_mn))[1:n_B_pars], each=d.ls$G)) %>%
+      filter(parName != "int") %>%
+      ggplot(aes(x=median, y=parName)) +
+      ggridges::geom_density_ridges(aes(fill=parName), alpha=0.5, size=0.25, scale=1) +
+      geom_vline(xintercept=0, colour="gray30") +
+      geom_point(data=filter(out_beta, X_var != "int"), aes(y=X_var),
+                 position=position_nudge(y=-0.05), shape=1) +
+      geom_linerange(data=filter(out_beta, X_var != "int"), 
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L25, xmax=L75), size=1) +
+      geom_linerange(data=filter(out_beta, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L05, xmax=L95), size=0.5) +
+      geom_errorbarh(data=filter(out_beta, X_var != "int"),
+                     position=position_nudge(y=-0.05),
+                     aes(y=X_var, xmin=L025, xmax=L975), height=0.1, size=0.15) +
+      scale_fill_brewer("", type="qual", palette=2) + 
+      theme(panel.grid.major.x=element_blank(), legend.position="none") +
+      labs(x="Median genus slope", y="", title=paste(Y_var, "mn:", best))
+    ggsave(paste0(fig_dir, "Bg_dens_", fig_ext), width=5.25, height=5)
   }
+
   
+  # plots: resids --------------------------------------------------------------
   ## predictions vs. observed values
-  ggplot(out.clny, aes_string("mu_mean", Y_var)) + 
-    geom_abline(linetype=3, size=0.5) + geom_point() + 
+  ggplot(out.clny, aes_string("mu_mean", Y_var)) +
+    geom_abline(linetype=3, size=0.5) + geom_point() +
     stat_smooth(method="lm", formula=y~x, colour="black", size=0.3) +
-    labs(x=expression(mu), y="Observed colony mean", title=Y_var)
-  ggsave(paste0("eda/mod_obs_mu_", f.i), width=5.25, height=5)
-  ggplot(out.clny, aes_string("y_bar_mean", Y_var)) + 
-    geom_abline(linetype=3, size=0.5) + geom_point() + 
+    labs(x=expression(mu), y="Observed colony mean",
+         title=paste0(Y_var, ": ", best))
+  ggsave(paste0(fig_dir, "mod_obs_mu_", fig_ext), width=5.25, height=5)
+  ggplot(out.clny, aes_string("y_bar_mean", Y_var)) +
+    geom_abline(linetype=3, size=0.5) + geom_point() +
     stat_smooth(method="lm", formula=y~x, colour="black", size=0.3) +
-    labs(x=expression(bar(y)), y="Observed colony mean", title=Y_var)
-  ggsave(paste0("eda/mod_obs_y_bar_", f.i), width=5.25, height=5)
+    labs(x=expression(bar(y)), y="Observed colony mean", 
+         title=paste0(Y_var, ": ", best))
+  ggsave(paste0(fig_dir, "mod_obs_y_bar_", fig_ext), width=5.25, height=5)
   ggplot(out.clny, aes_string("delta_mean", paste0("log(", Y_var, "_sd)"))) +
-    geom_abline(linetype=3, size=0.5) + geom_point() + 
+    geom_abline(linetype=3, size=0.5) + geom_point() +
     stat_smooth(method="lm", formula=y~x, colour="black", size=0.3) +
-    labs(x=expression(delta), y="Observed within-colony log(sd)", title=Y_var)
-  ggsave(paste0("eda/mod_obs_delta_", f.i), width=5.25, height=5)
+    labs(x=expression(delta), y="Observed within-colony log(sd)",
+         title=paste0(Y_var, ": ", best))
+  ggsave(paste0(fig_dir, "mod_obs_delta_", fig_ext), width=5.25, height=5)
   ggplot(out.clny, aes_string("d_log_mean", paste0("log(", Y_var, "_sd)"))) +
-    geom_abline(linetype=3, size=0.5) + geom_point() + 
+    geom_abline(linetype=3, size=0.5) + geom_point() +
     stat_smooth(method="lm", formula=y~x, colour="black", size=0.3) +
-    labs(x=expression(log(d)), y="Observed within-colony log(sd)", title=Y_var)
-  ggsave(paste0("eda/mod_obs_d_", f.i), width=5.25, height=5)
-  
-  
-  
+    labs(x=expression(log(d)), y="Observed within-colony log(sd)",
+         title=paste0(Y_var, ": ", best))
+  ggsave(paste0(fig_dir, "mod_obs_d_", fig_ext), width=5.25, height=5)
+
+
+
+  # plots: elevation -----------------------------------------------------------
   ## across elevation
-  ggplot(out.clny, aes(El_m, mu_mean)) + geom_point() + 
+  ggplot(out.clny, aes(El_m, mu_mean)) + geom_point() +
     geom_point(aes(y=y_bar_mean), shape=1, alpha=0.5) +
     {if(std) stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x,
                          colour="gray40", size=0.2, se=F) } +
     {if(std) stat_smooth(method="lm", formula=y~x, colour="gray40", se=F, size=1.5) } +
     {if(!std) stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x,
                           colour="gray40", size=0.3, se=F) } +
-    labs(x="Elevation (m)", y="Mean", title=Y_var)
-  ggsave(paste0("eda/el_mn_all_", f.i), width=5.25, height=5)
-  ggplot(out.clny, aes(El_m, delta_mean)) + geom_point() + 
+    labs(x="Elevation (m)", y="Mean", 
+         title=paste(Y_var, "mean:", best))
+  ggsave(paste0(fig_dir, "el_mn_all_", fig_ext), width=5.25, height=5)
+  ggplot(out.clny, aes(El_m, delta_mean)) + geom_point() +
     geom_point(aes(y=d_log_mean), shape=1, alpha=0.5) +
     {if(std) stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x,
                          colour="gray40", size=0.2, se=F) } +
     {if(std) stat_smooth(method="lm", formula=y~x, colour="gray40", se=F, size=1.5) } +
     {if(!std) stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x,
                           colour="gray40", size=0.3, se=F) } +
-    labs(x="Elevation (m)", y="Within-colony log sd", title=Y_var)
-  ggsave(paste0("eda/el_sd_all_", f.i), width=5.25, height=5)
-  
+    labs(x="Elevation (m)", y="Within-colony log sd", 
+         title=paste(Y_var, "sd:", best))
+  ggsave(paste0(fig_dir, "el_sd_all_", fig_ext), width=5.25, height=5)
+
 # 
 #   mn_plots <- setNames(vector("list", length(X_vars_mn)), names(X_vars_mn))
 #   sd_plots <- setNames(vector("list", length(X_vars_sd)), names(X_vars_sd))
@@ -379,11 +667,11 @@ for(k in 1:length(response_vars)) {
 #   }
 #   mn_p <- ggpubr::ggarrange(plotlist=mn_plots) %>%
 #     ggpubr::annotate_figure(top=Y_var, left="Mean")
-#   ggsave(paste0("eda/margEff_mn_", Y_var, ifelse(std, "_std", ""), ".pdf"),
+#   ggsave(paste0(fig_dir, "margEff_mn_", Y_var, ifelse(std, "_std", ""), ".pdf"),
 #          mn_p, width=10, height=7)
 #   sd_p <- ggpubr::ggarrange(plotlist=sd_plots) %>%
 #     ggpubr::annotate_figure(top=Y_var, left="Within-colony sd")
-#   ggsave(paste0("eda/margEff_sd_", Y_var, ifelse(std, "_std", ""), ".pdf"),
+#   ggsave(paste0(fig_dir, "margEff_sd_", Y_var, ifelse(std, "_std", ""), ".pdf"),
 #          sd_p, width=10, height=7)
 #   
 #   wkr.sample <- sample(1:nrow(out.wkr), min(1000, nrow(out.wkr)), replace=F)
@@ -413,7 +701,7 @@ for(k in 1:length(response_vars)) {
 #     geom_linerange(aes(ymin=y_q05, ymax=y_q95), size=0.5, alpha=0.5) + 
 #     geom_linerange(aes(ymin=y_q025, ymax=y_q975), size=0.2, alpha=0.5) + 
 #     labs(x=expression(y[obs]), y=expression(y[mod]))
-#   ggsave(paste0("eda/post_y_line_", f.i), width=6, height=5)
+#   ggsave(paste0(fig_dir, "post_y_line_", fig_ext), width=6, height=5)
 #   
 #   
 #   # clny.sample <- sample(1:nrow(out.clny), 25, replace=F)
@@ -480,7 +768,7 @@ for(k in 1:length(response_vars)) {
 #     geom_linerange(aes(ymin=mu_q05, ymax=mu_q95), size=0.5, alpha=0.5) + 
 #     geom_linerange(aes(ymin=mu_q025, ymax=mu_q975), size=0.2, alpha=0.5) +
 #     labs(x=expression(bar(y)[obs]), y=expression(mu[post]))
-#   ggsave(paste0("eda/post_mu_line_", f.i), width=6, height=5)
+#   ggsave(paste0(fig_dir, "post_mu_line_", fig_ext), width=6, height=5)
 #   ggplot(clny.post.sum, aes(obs_y, y=y_q50, colour=GENUSID)) + 
 #     scale_colour_brewer("", type="qual", palette=2) +
 #     geom_abline() + 
@@ -489,7 +777,7 @@ for(k in 1:length(response_vars)) {
 #     geom_linerange(aes(ymin=y_q05, ymax=y_q95), size=0.5, alpha=0.5) + 
 #     geom_linerange(aes(ymin=y_q025, ymax=y_q975), size=0.2, alpha=0.5) +
 #     labs(x=expression(bar(y)[obs]), y=expression(bar(y)[post]))
-#   ggsave(paste0("eda/post_y_bar_line_", f.i), width=6, height=5)
+#   ggsave(paste0(fig_dir, "post_y_bar_line_", fig_ext), width=6, height=5)
 #   ggplot(clny.post.sum, aes(x=obs_d, y=delta_q50, colour=GENUSID)) + 
 #     scale_colour_brewer("", type="qual", palette=2) +
 #     geom_abline() + 
@@ -498,7 +786,7 @@ for(k in 1:length(response_vars)) {
 #     geom_linerange(aes(ymin=delta_q05, ymax=delta_q95), size=0.5, alpha=0.5) +
 #     geom_linerange(aes(ymin=delta_q025, ymax=delta_q975), size=0.2, alpha=0.5) +
 #     labs(x=expression(log(d[obs])), y=expression(delta[post]))
-#   ggsave(paste0("eda/post_delta_line_", f.i), width=6, height=5)
+#   ggsave(paste0(fig_dir, "post_delta_line_", fig_ext), width=6, height=5)
 #   ggplot(clny.post.sum, aes(x=obs_d, y=d_q50, colour=GENUSID)) + 
 #     scale_colour_brewer("", type="qual", palette=2) +
 #     geom_abline() + 
@@ -507,7 +795,7 @@ for(k in 1:length(response_vars)) {
 #     geom_linerange(aes(ymin=d_q05, ymax=d_q95), size=0.5, alpha=0.5) +
 #     geom_linerange(aes(ymin=d_q025, ymax=d_q975), size=0.2, alpha=0.5) +
 #     labs(x=expression(log(d[obs])), y=expression(log(d[post])))
-#   ggsave(paste0("eda/post_d_line_", f.i), width=6, height=5)
+#   ggsave(paste0(fig_dir, "post_d_line_", fig_ext), width=6, height=5)
 #   
 #   
   
@@ -524,7 +812,7 @@ R2.df <- data.frame(Trait=response_vars, R2_mn=NA, R2_sd=NA)
 for(k in 1:length(response_vars)) {
   Y_var <- response_vars[k]
   
-  out <- readRDS(paste0("eda/0_out_", Y_var, ifelse(std, "_std", ""), ".rds"))
+  out <- readRDS(paste0(out_dir, "0_out_", Y_var, ifelse(std, "_std", ""), ".rds"))
   
   if(any(is.na(wkr.df[[Y_var]]))) {
     wkr.df_i <- wkr.df[-which(is.na(wkr.df[[Y_var]])),]
