@@ -29,66 +29,32 @@ knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
 
 ```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
 # libraries, functions, directories
-library(tidyverse); library(viridis)
+library(tidyverse); library(viridis); library(kableExtra)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank()))
 ```
 
 
 
 # Introduction
-In ants, traits vary among workers. Past work along environmental gradients has primarily focused on how traits vary among species or communities, relying on a single species-wide average value for each trait. This research has shown that ant communities tend to become darker in colder environments, particularly when UV-B is high. Darker species also tend to be larger. Further, rather than a shift of the whole size distribution, colder environments tend to filter out the smallest species. Similarly, wet environments tend to filter out larger species. 
 
-Some work has also explored variation within species across an elevational gradient, though with either limited taxonomic scope (i.e., focused on one species) or limitations on the applicability within a eusocial taxon due to logistical constraints (i.e., colonies were not adequately addressed). Nevertheless, this work has shown an increase in body size with elevation in one species. In contrast, the broader study found that intraspecific variation was rather small (relative to total variation across all species) and did not show much relationship with elevation. 
+The variation of traits within populations is central to many evolutionary and ecological processes, with implications for species coexistence (Violle et al. 2012), biogeographical patterns (Classen et al. 2017), and responses to anthropogenic change (Moran et al. 2016, Merckx et al. 2018). Intraspecific variation in morphology can be considerable. In plants, for example, approximately 25% of the trait variation in a typical community is attributable to intraspecific variation (Siefert et al. 2015). Incorporating variability among individuals has advanced our understanding of the assembly, structure, and dynamics of communities (Jung et al. 2010, Laughlin et al. 2012). Nevertheless, intraspecific variability has often been neglected in ecology, and basic patterns for most taxa remain largely unknown (Bolnick et al. 2011, Violle et al. 2012, Wong and Lewis 2018).
 
-However, as eusocial insects, variation within a species is not necessarily the correct focus. The success of a colony does not rely on what would be the success of each individual worker, but rather the collective success of all of the workers. Variation within colonies can be advantageous. In both desert-dwelling *Cataglyphis* and alpine-dwelling *Formica neorufibarbis*, larger workers forage during the middle of the day when temperatures are higher because they heat up more slowly. In the dimorphic *F. neorufibarbis*, the smaller workers were also darker, maximizing their ability to warm up quickly in the cold mornings. Thus, theory has been developed for why we might expect the mean trait value to change across environmental gradients, but in ants we might expect the variance within a colony to change as well.
+Realized morphological traits result from the interplay of environmental and genetic factors. In eusocial insects like ants, a trait such as body size is the product of intrinsic factors of the colony (e.g., genetics and the social environment), extrinsic factors outside the colony (e.g., available nutrition and the physical environment), and their interaction during larval development (Wills et al. 2018). Nevertheless, environmental conditions are expected to be a major driver of the geographical patterns of traits (McGill et al. 2006), and many biogeographical rules have been proposed regarding these patterns, often based on physicochemical properties (CITE). For instance, Bergamnn's rule asserts an increase in body size in colder environments, and Allen's rule a decrease in limb length in colder environments, each based on the reduced heat loss of a smaller surface area to volume ratio (CITE). Similarly, Gloger's rule predicts that coloration should be darker in humid environments to counteract the heat capacity of atmospheric moisture (CITE). While many biogeographical rules were originally proposed in particular taxonomic or environmental contexts (CITE), many have since been applied within and among species for a variety of species' life styles (CITE). 
 
-Different traits may have different combinations of pressures. Allen's rule, developed for endotherms (but let's be honest, it has probably been applied to ectotherms as well) posits that body shapes and limb proportions should vary with the climate, maximizing exposure in warm climates (i.e., longer limbs) and minimizing exposure in cold climates (i.e., shorter limbs). This is something to look into in ants. Limb length could also be affected by development time or conditions or something... Relative leg length does have an impact on foraging behaviors. Relative scape length would feel some of these same physiological pressures.
+Traits in insect communities have also been shown to vary along natural and anthropogenic gradients (Reymond et al. 2013), sometimes in unexpected ways. For instance, inter- and intraspecific variation in the body size of bees showed opposing patterns on Mount Kilimanjaro, with smaller-bodied species at high elevations, but larger body sizes within species (Classen et al. 2017), revealing conflicting pressures of physiological and energetic constraints. In changing environments, the degree of variation within a population may also affect species’ resilience (Kühsel and Blüthgen 2015), though empirical evidence is equivocal (Macheriotou et al. 2015). Additional anthropogenic impacts like land use change can affect intraspecific variation of particular traits, such as selecting for larger body sizes in moths (Merckx et al. 2018), further complicating potential future responses to climate change. 
 
-The biogeographical 'rules' that could be relevant include:  
+Recent work in ants has shown that morphology indeed varies among communities across environmental gradients. Using species-level average trait values, ant communities tend to become darker in colder environments (Kaspari 2005, Bishop et al 2016), particularly when UV-B is high. Darker species also tend to be larger (Bishop et al 2016). Further, communities in cold environments do not show a uniform shift of the size distribution, but rather a truncation where the smallest species are not present (Reymond et al 2013, Gibb et al 2018). Similarly, wet environments tend to filter out larger species (Gibb et al 2018). 
 
-- Bergmann's rule (larger bodies in colder places)  
-- Allen's rule (longer limbs in warmer places)  
-- Gloger's rule (darker color in humid places)
+Some work has also explored variation within ant species across elevational gradients. Nevertheless, this work has shown an increase in body size with elevation in one species (Bernadou 2016). In contrast, a broader study of 23 ant species in South Africa found that intraspecific variation was rather small relative to total variation across all species, and found no convincing relationships in intraspecific variation across elevations (Gaudard et al 2019). It is therefore unclear to what extent the patterns of morphology observed among species are also seen within individual species. 
 
-Given the assemblage-level work using species-level averages, there's also the question of whether individual workers (or colonies) that are darker tend to be larger, and whether this corresponds with workers (or colonies) from colder environments. There is also a question of timing, where the size or color of workers could change with either the age of the individual worker (light just after eclosion, and possibly also fading with age?) or the date of eclosion (larvae developing at different points in the summer, fed different diets, experiencing different temperatures). For predictions based on date or season, I think I need to do more research.
+Eusocial taxa like ants, however, are in many ways unique due to their colonial life style. In contrast to non-eusocial species, the success of a colony depends on the collective success of the individuals, and thus the distribution of traits within the colony, rather than on any single individual (CITE). Morphological variation within ant colonies can have many implications, including impacts on the thermal foraging window of the colony. In both desert-dwelling *Cataglyphis* and alpine-dwelling *Formica neorufibarbis*, larger workers forage during the middle of the day when temperatures are higher because they heat up more slowly (Cerda & Retana 1997, Bernstein 1976). In contrast to patterns in ant communities, the smaller *F. neorufibarbis* workers in are darker, maximizing their ability to warm up quickly in the cold mornings (Bernstein 1976). Worker-level traits like body size varies among individuals within each colony, with potentially different distributions among colonies within a population and among populations along a gradient (Frenette-Dussault et al. 2013, Wills et al. 2014, Chevalier et al. 2015). Accounting for trait variability among and within ant colonies provides a deeper, more accurate view of the ecological processes shaping communities and biodiversity.
 
-Combining everything, the predictions *could* be:  
 
-1. In **cold** environments:  
-    a. Size  
-        - colony means are larger  
-        - q05 is larger, q95 is unchanged (?)  
-        - colony sd is larger (but conflicts with previous)  
-    b. Color  
-        - colony means are darker  
-        - colony sd is larger  
-    c. Relative Leg Length  
-        - colony means are smaller  
-    d. Relative Scape Length  
-        - colony means are smaller  
-2. In **wet** environments:  
-    a. Size  
-        - colony means are smaller
-        - q05 is unchanged, q95 is smaller (?)
-    b. Color  
-        - colony means are darker  
-3. In **early** season:
-    a. Size  
-    b. Color  
-        - colony sd is larger at end of season (?)  
-4. In **highly variable** environments:  
-    a. Size  
-        - colony sd is larger
-    b. Color  
-        - colony sd is larger  
-5. Size and color:
-    a. Larger workers are darker  
-    b. Colonies with larger means have darker means  
-6. Predictions based on foraging habits?  
-    a. Species/genera that forage in open are more exposed
-    b. Species in forests are less exposed  
-    c. Variation has larger impact for larger taxa?  
-        - a 10% change in size is physiologically more consequential for larger sizes
+
+
+
+
+
 
 
 
@@ -98,10 +64,12 @@ So in this paper, here are the possible topics to include:
 - Variance partitioning across biological levels  
 - Correlations, PCA of traits within workers  
 - Hierarchical heteroskedastic regression model assessing drivers  
+- When can we ignore variation among colonies? Are there traits where colony identity (and as a corrollary, environment) does not matter? Are there traits where it is particularly important (i.e., colonies are quite distinct)?  
+- When can we ignore variation within species? Are there traits or questions where species-level averages are likely to be reasonable approximations of reality? Conversely, are there traits where species-level averages are likely to be *poor* approximations of reality?  
+- Direct test of biogeographic rules (intraspecific or intragenic formulations)  
+  - The multispecies formulations use species-level averages...  
+  - Within species, decide on covariates based on proposed rule (but they're kind of all temp + precip + NPP mostly...)
 
-
-Here's an online reference with some citations:
-https://jrnold.github.io/bayesian_notes/heteroskedasticity.html
 
 
 
@@ -113,62 +81,44 @@ https://jrnold.github.io/bayesian_notes/heteroskedasticity.html
 ## Model  
 ### Overview  
 
-This model partitions variation in worker-level traits across multiple biological levels. First, workers are distributed within their colony. We assume that the traits of workers within each colony follow a normal distribution about a colony-level mean with a colony-level standard deviation. This is empirically not true for all species, species that are polymorphic or dimorphic. For workers in the minor caste or for workers of monomorphic species, however, this is a reasonable simplifying assumption. 
+This model partitions variation in worker-level traits across multiple biological levels. [Here](https://jrnold.github.io/bayesian_notes/heteroskedasticity.html) is an online reference with some citations for heteroskedastic models. First, workers are distributed within their colony. We assume that the traits of workers within each colony follow a normal distribution about a colony-level mean with a colony-level standard deviation. This is empirically not true for all species, species that are polymorphic or dimorphic. For workers in the minor caste or for workers of monomorphic species, however, this is a reasonable simplifying assumption. 
 
 The colony-level mean and standard deviation may vary with the environment. That's what we're testing. However, there are other factors beyond the available environmental variables that may influence these values, including stochasticity. Thus, we construct separate regressions for the mean and standard deviation, where each includes environmental variables and normally distributed random error. Lastly, we allow each species to respond differently to each environmental variable (i.e., random intercept *and* random slopes), but these responses are taxonomically clustered such that information is shared among species, with greater influence among species within the same genus. 
 
 
-### Intuitive formulation
-The trait value for each worker $i$ is distributed normally such that:
+### Model structure
+
+The trait value for each worker $i$ is distributed normally within each colony $j$ for each species $s$ such that:
 
 \begin{equation}
   y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
 \end{equation}
 
-where $j$ is the colony index, $s$ is the species index, $\bar{y}_{j,s}$ is the mean within colony $j$, and $d_{j,s}$ is the standard deviation among workers in colony $j$. Each within-colony mean is distributed about predicted value $\mu_{j,s}$ based on the environmental conditions with species-specific standard deviation $\sigma_{1,s}$ such that:
+where $\bar{y}_{j,s}$ is the intra-colony mean, and $d_{j,s}$ is the intra-colony standard deviation. We use robust regression to predict the underlying relationships between the environment and the colony-level parameters to allow for fatter tails in the residual distributions. Each intra-colony mean is therefore distributed about predicted value $\mu_{j,s}$ based on the environmental conditions such that:
 
 \begin{equation}
-  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1,s})
+  \bar{y}_{j,s} \sim Student\text{-}t(\mu_{j,s}, \sigma_{1}, \nu_{1})
 \end{equation}
 
 \begin{equation}
   \mu_{j,s} = X_j b_s
 \end{equation}
 
-where $X$ is a matrix of covariates and $b$ is a vector of species specific slopes. 
+where scale $\sigma_{1}$ and degrees of freedom $\nu_{1}$ are parameters describing the shape of the Student-t distribution, $X$ is a matrix of environmental covariates, and $b$ is a vector of species specific slopes.  
 
 Similarly, the within-colony variation is expected to be a function of the environment. Thus, the standard deviation within each colony $d_{j,s}$ is:
 
 \begin{equation}
-  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2,s})
+  log(d_{j,s}) \sim Student\text{-}t(\delta_{j,s}, \sigma_{2}, \nu_{2})
 \end{equation}
 
 \begin{equation}
   \delta_{j,s} = V_j a_s
 \end{equation}
 
-where $V$ is a matrix of covariates and $a_s$ is a vector of species specific slopes. This lognormal distribution is one thing I'm not sure about. It needs to be constrained to be positive though. 
+where scale $\sigma_{2}$ and degrees of freedom $\nu_{2}$ again describe the shape of the Student-t distribution, $V$ is a matrix of environmental covariates, and $a_s$ is a vector of species specific slopes. 
 
-with species-level error $\epsilon_{1,j}$ and worker-level error $\epsilon_{1,i}$.
-
-Putting all of that together, we get:
-\begin{equation}
-  y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
-\end{equation}
-\begin{equation}
-  \bar{y}_{j,s} \sim Norm(\mu_{j,s}, \sigma_{1,s})
-\end{equation}
-\begin{equation}
-  log(d_{j,s}) \sim Norm(\delta_{j,s}, \sigma_{2,s})
-\end{equation}
-\begin{equation}
-  \mu_{j,s} = X_j b_s
-\end{equation}
-\begin{equation}
-  \delta_{j,s} = V_j a_s
-\end{equation}
-
-And so we assume that the heteroskedasticity of workers within colonies is at least partially predictable. There are hierarchical priors on $b$, $a$, $\sigma_1$, and $\sigma_2$, where each of these parameters are taxonomically clustered.
+Thus, we assume that the both the intra-colony means and standard deviations may vary with environmental conditions. The hierarchical priors on $b$ and $a$ allow for taxonomic clustering among genera:
 
 \begin{equation}
   b_{p,s} \sim Norm(B_{p,g}, \sigma_{b_p})
@@ -184,18 +134,195 @@ And so we assume that the heteroskedasticity of workers within colonies is at le
   A_{g} \sim mvNorm(\alpha, \Sigma_A)
 \end{equation}
 
-\begin{equation}
-  \sigma_{1,s} \sim Exponential(1)
-\end{equation}
-\begin{equation}
-  \sigma_{2,s} \sim Exponential(5)
-\end{equation}
+where $B_{g}$ and $A_{g}$ are genus-level averages with standard deviations $\sigma_{b_p}$ and $\sigma_{A_p}$ for each variable $p$, and $\beta$ and $\alpha$ are overall average responses among all species with covariance matrices $\Sigma_B$ and $\Sigma_A$. 
 
 
 
 
 
-### Alternative formulation
+
+
+
+
+## Traits
+
+```{r table1, echo=F}
+tribble(
+  ~Trait, ~Abbr., ~Description, ~Relevance, 
+  ~`Expected Env. Patterns`, ~Type, ~Sources,
+  "Weber's Length", "WL",
+    "Pronotum anterior to propodeum posterior", 
+    "Overall body size, linked to resource use",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Cerda & Retana 1997, Kaspari & Weiser 1999, Bishop et al 2016, Gibb et al 2018",
+  "Head Length", "HL",
+    "Top of head to margin of clypeus along center line", 
+    "Overall body size, linked to predatory strategy",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Cerda & Retana 1997, Kaspari & Weiser 1999, Silva & Brandão 2010, Bishop et al 2016, Gibb et al 2018",
+  "Head Width", "HW",
+    "Maximum width above eyes", 
+    "Overall body size, linked to predatory strategy",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Kaspari 1993, Sarty et al 2006, Schofield et al 2016, Bernadou et al 2016",
+  "Color (brightness)", "V",
+    "Median V in HSV color of mesosoma dorsum", 
+    "Thermal regulation, protection from UV-B",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP 
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Willmer & Unwin 1981, Cerda & Retana 1997, Bishop et al 2016",
+  "Head Shape", "HS",
+    "HW / HL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: ? \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Sosiak & Barden 2021",
+  "Leg Length", "LL",
+    "(Hind Femur + Tibia) / WL", 
+    "Walking speed, foraging spaces available",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: +NPP 
+      \\end{align*}", 
+    "Relative", "Sarty et al 2006, Silva & Brandão 2010, Gibb & Parr 2010, 2013",
+  "Scape Proportion", "SP",
+    "Scape Length / HL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Silva & Brandão 2010, Sosiak & Barden 2021",
+  "Pronotal Expansion", "PE",
+    "Pronotum Width / WL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: ? \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Gibb & Parr 2013, Keller et al 2014, Sosiak & Barden 2021",
+  "Dorsoventral Eye Position", "DVE",
+    "Interocular distance / HW", 
+    "Foraging strategy",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Weiser & Kaspari 2006, Narendra et al 2013, Sosiak & Barden 2021",
+) %>% knitr::kable(caption="Table 1. Ant traits included in the analyses.",
+                   align=c("l", "c", "l", "l", "c", "c", "l")) %>%
+  kable_paper(font_size=11) %>% 
+  column_spec(1, width_max="5em") %>%
+  column_spec(3, width_max="8em") %>%
+  column_spec(4, width_max="7em") %>%
+  column_spec(5, extra_css="font-size: 10px") %>%
+  column_spec(7, width_max="7em", italic=T, extra_css="font-size: 10px") 
+```
+
+
+
+
+
+----------
+
+
+
+
+
+# Results
+
+See the [trait distributions](https://sz-tim.github.io/CH_traits/trait_distributions.html#Variance-partitioning) notebook for more variance partitioning and exploration of the distribution and variance of traits.
+
+
+
+
+
+
+
+----------
+
+
+
+
+
+
+# References  
+
+Sosiak & Barden (2021) also report that relative (scaled) traits are less variable across ecomorphs (section 3.1). 
+
+
+
+
+----------
+
+
+
+
+
+# Scratch
+## Within-colony variation
+We expect that, on average, the variation within each colony will be underestimated. With only four workers from each colony, the sample size is quite small. This biases the standard deviation of the sample downward. For example, say we have a large colony with a trait that follows a standard normal distribution. We can take many samples of 4 workers and calculate the standard deviation of each sample:
+```{r sim_sd}
+sd_true <- 0.1
+wkr_samples <- map_dbl(1:1e2, ~sd(rnorm(4, 0, sd_true)))
+
+par(mfrow=c(1,2))
+plot(density(wkr_samples), main="Simulated sd for samples of 4 workers", 
+     xlab="Sample sd")
+abline(v=sd_true, col="red")
+abline(v=exp(mean(log(wkr_samples))), col="blue", lty=2)
+
+plot((wkr_samples - sd_true), main="Residuals", col=rgb(0,0,0,0.05),
+     xlab="Sample", ylab=expression(s-sigma))
+abline(h=0, col="red")
+abline(h=mean(wkr_samples - sd_true), col="blue", lty=2)
+
+# Proportion of samples underestimating true sd
+round(sum(wkr_samples < sd_true)/length(wkr_samples), 3)
+```
+
+
+Thus, we should expect that, on average, the latent predicted within-colony standard deviation $d$ is larger than the standard deviation of the four measurements. More specifically, it should be something like 60% that underestimate it. This is a function of the sample size, rather than the standard deviation, at least assuming that the observations are, in fact, drawn from a normal distribution.
+```{r sim_sd_sampleSize, message=FALSE}
+sim.df <- expand.grid(N=c(2,3,4,10), 
+                      sd_true=seq(0.01, 2, length.out=6), 
+                      sim=1:1e2) %>%
+  pmap_dfr(., function(N, sd_true, sim) tibble(N=N, 
+                                               sd_true=sd_true, 
+                                               sd_sample=sd(rnorm(N, 0, sd_true)))) %>%
+  mutate(N=as.factor(N))
+ggplot(sim.df, aes(sd_sample, colour=N)) + 
+  geom_vline(data=summarise(group_by(sim.df, N, sd_true), 
+                            N=first(N), sd_true=first(sd_true)), 
+             aes(xintercept=sd_true), lty=3) +
+  geom_density() + 
+  scale_colour_viridis_d(end=0.8) + facet_wrap(~sd_true, scales="free")
+
+# Proportion of samples underestimating true sd
+sim.df %>% group_by(N, sd_true) %>%
+  summarise(pr_under=sum(sd_sample < sd_true)/n()) %>%
+  ggplot(aes(sd_true, pr_under, colour=N)) + geom_line() +
+  scale_colour_viridis_d(end=0.8)
+```
+
+So this means we would expect that the residuals between $sd(y_{1-4,j,s})$ and $d_{j,s}$ should be biased toward $d_{j,s}$ being larger (i.e., negative). In the current formulation with an approximate run, this is true, with $sd(y_{1-4,j,s}) < d_{j,s}$ for about 67% of the colonies. This is maybe a bit more biased toward predicting a larger standard deviation, but I think is not too bad, considering that not all colonies have four workers (mean: 3.88; 7 with 1 worker, 2 with 2 workers, 3 with 6 workers, and 239 with 4 workers). 
+
+
+
+## Alternative model formulation
 The above equations could also be re-written in a different formulation that involves fewer equations, though I'm not sure it's more intuitive:
 
 \begin{equation}
@@ -236,73 +363,44 @@ It might be clearer to break that up a bit:
 
 
 
+## Prediction notes
 
-As it is, the predictions by worker are strongly tied to the genus, even for a trait like color that is rather variable. This might become less so as I add the additional colonies from the public inventory, but it also reflects something real I think. Looking at the variance partitioning across different traits, a lot of the variation occurs at the genus-level:
+Given the assemblage-level work using species-level averages, there's also the question of whether individual workers (or colonies) that are darker tend to be larger, and whether this corresponds with workers (or colonies) from colder environments. There is also a question of timing, where the size or color of workers could change with either the age of the individual worker (light just after eclosion, and possibly also fading with age?) or the date of eclosion (larvae developing at different points in the summer, fed different diets, experiencing different temperatures). For predictions based on date or season, I think I need to do more research.
 
-![Variance partitioning of worker traits](../eda/varpart_all.jpg)
+Combining everything, the predictions *could* be:  
 
-However, for a trait like color, we would expect that there is more clustering within species rather than within genera. Suitably broad priors on $\sigma_a$ should take care of that, I think.
-
-See the [trait distributions](https://sz-tim.github.io/CH_traits/trait_distributions.html#Variance-partitioning) notebook for more variance partitioning and exploration of the distribution and variance of traits.
-
-
-
-
-
-
-
-
-----------
-
-
-
-
-# Background
-## Within-colony variation
-We expect that, on average, the variation within each colony will be underestimated. With only four workers from each colony, the sample size is quite small. This biases the standard deviation of the sample downward. For example, say we have a large colony with a trait that follows a standard normal distribution. We can take many samples of 4 workers and calculate the standard deviation of each sample:
-```{r sim_sd}
-sd_true <- 0.1
-wkr_samples <- map_dbl(1:1e5, ~sd(rnorm(4, 0, sd_true)))
-
-par(mfrow=c(1,2))
-plot(density(wkr_samples), main="Simulated sd for samples of 4 workers", 
-     xlab="Sample sd")
-abline(v=sd_true, col="red")
-abline(v=exp(mean(log(wkr_samples))), col="blue", lty=2)
-
-plot((wkr_samples - sd_true), main="Residuals", col=rgb(0,0,0,0.05),
-     xlab="Sample", ylab=expression(s-sigma))
-abline(h=0, col="red")
-abline(h=mean(wkr_samples - sd_true), col="blue", lty=2)
-
-# Proportion of samples underestimating true sd
-round(sum(wkr_samples < sd_true)/length(wkr_samples), 3)
-```
-
-
-Thus, we should expect that, on average, the latent predicted within-colony standard deviation $d$ is larger than the standard deviation of the four measurements. More specifically, it should be something like 60% that underestimate it. This is a function of the sample size, rather than the standard deviation, at least assuming that the observations are, in fact, drawn from a normal distribution.
-```{r sim_sd_sampleSize, message=FALSE}
-sim.df <- expand.grid(N=c(2,3,4,10), 
-                      sd_true=seq(0.01, 2, length.out=6), 
-                      sim=1:1e4) %>%
-  pmap_dfr(., function(N, sd_true, sim) tibble(N=N, 
-                                               sd_true=sd_true, 
-                                               sd_sample=sd(rnorm(N, 0, sd_true)))) %>%
-  mutate(N=as.factor(N))
-ggplot(sim.df, aes(sd_sample, colour=N)) + 
-  geom_vline(data=summarise(group_by(sim.df, N, sd_true), 
-                            N=first(N), sd_true=first(sd_true)), 
-             aes(xintercept=sd_true), lty=3) +
-  geom_density() + 
-  scale_colour_viridis_d(end=0.8) + facet_wrap(~sd_true, scales="free")
-
-# Proportion of samples underestimating true sd
-sim.df %>% group_by(N, sd_true) %>%
-  summarise(pr_under=sum(sd_sample < sd_true)/n()) %>%
-  ggplot(aes(sd_true, pr_under, colour=N)) + geom_line() +
-  scale_colour_viridis_d(end=0.8)
-```
-
-So this means we would expect that the residuals between $sd(y_{1-4,j,s})$ and $d_{j,s}$ should be biased toward $d_{j,s}$ being larger (i.e., negative). In the current formulation with an approximate run, this is true, with $sd(y_{1-4,j,s}) < d_{j,s}$ for about 67% of the colonies. This is maybe a bit more biased toward predicting a larger standard deviation, but I think is not too bad, considering that not all colonies have four workers (mean: 3.88; 7 with 1 worker, 2 with 2 workers, 3 with 6 workers, and 239 with 4 workers). 
-
-
+1. In **cold** environments:  
+    a. Size  
+        - colony means are larger  
+        - q05 is larger, q95 is unchanged (?)  
+        - colony sd is larger (but conflicts with previous)  
+    b. Color  
+        - colony means are darker  
+        - colony sd is larger  
+    c. Relative Leg Length  
+        - colony means are smaller  
+    d. Relative Scape Length  
+        - colony means are smaller  
+2. In **wet** environments:  
+    a. Size  
+        - colony means are smaller
+        - q05 is unchanged, q95 is smaller (?)
+    b. Color  
+        - colony means are darker  
+3. In **early** season:
+    a. Size  
+    b. Color  
+        - colony sd is larger at end of season (?)  
+4. In **highly variable** environments:  
+    a. Size  
+        - colony sd is larger
+    b. Color  
+        - colony sd is larger  
+5. Size and color:
+    a. Larger workers are darker  
+    b. Colonies with larger means have darker means  
+6. Predictions based on foraging habits?  
+    a. Species/genera that forage in open are more exposed
+    b. Species in forests are less exposed  
+    c. Variation has larger impact for larger taxa?  
+        - a 10% change in size is physiologically more consequential for larger sizes
