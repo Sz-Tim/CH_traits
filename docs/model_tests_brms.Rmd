@@ -1,0 +1,317 @@
+---
+title: "Intra- and interspecific variation in Swiss ants"
+subtitle: "Distributional models in brms"
+author: "Tim Szewczyk"
+output:
+  html_document:
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Overview  
+
+A recent update to the R package `brms` includes the ability to run *distributional models*, where both the mean and standard deviation are predicted. Since this is exactly what I want to do and the author of the package is an actual statistician who works closely with the Stan development team, it's better to use the package and scrap the homemade models I had been using. This also gives the package (and Stan) some extra visibility, and gives an example of how easy-to-use Bayesian models have become.
+
+```{r setup, echo=F}
+# set directory for knitr as main project directory
+knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
+library(tidyverse); library(sf); library(brms); library(tidybayes)
+options(mc.cores=parallel::detectCores())
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+
+source("code/00_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
+trts <- readRDS("data/trts.rds")
+
+fig_dir <- "eda/"
+out_dir <- "temp/"
+```
+
+
+
+----------
+
+
+
+# Model setup
+
+```{r model_setup, eval=F, message=FALSE, warning=FALSE}
+# standardization methods:
+#   1: scale cov & traits across all species
+#   2: scale cov & traits within spp
+#   3: scale cov across all spp, traits within spp
+std_method <- 3 
+
+# minimum number of colonies for species to be included
+clny_min <- 3
+
+# minimum elevational range for species to be included
+rng_thresh <- 200
+
+# select variable set
+var_set <- c("all", "el", "climate", "hyp")[1]
+fig_dir <- paste0(fig_dir, var_set, "/")
+
+# response variables to loop through
+response_vars <- c("v", 
+                   # "HeadWidth", 
+                   # "HeadLength",
+                   # "HeadShape",
+                   "RelIntOc",
+                   # "ScapeLength",
+                   # "ScapeProp",
+                   "WebersLength",
+                   "PronotExp",
+                   "RelLegHind")
+
+# covariates: all, el, and specific hypotheses
+X.ls <- list("all"=c("GDD5", "PwarmQ","Pseas", "Tseas", 
+                     "npp", "aspectN", "Cnpy", "SampleDate"),
+             "el"=c("mnt25", "SampleDate"),
+             "climate"=c("GDD5", "PwarmQ", "Pseas", "Tseas", "SampleDate"),
+             "v"=c("GDD5", "PwarmQ", "aspectN", "Cnpy", "SampleDate"),
+             "WebersLength"=c("GDD5", "PwarmQ", "SampleDate"),
+             "RelLegHind"=c("GDD5", "npp", "Cnpy", "SampleDate"),
+             "PronotExp"=c("npp", "Cnpy", "SampleDate"),
+             "RelIntOc"=c("npp", "Cnpy", "SampleDate"))
+genera_incl <- c("Myrm", 
+                 "Mani",
+                 "Lasi",
+                 "Temn",
+                 "Tetr",
+                 "Lept",
+                 "Form",
+                 "Apha"
+                 )
+
+
+# wkr.df -----------------------------------------------------------------------
+std_ext <- paste0("_std_", std_method)
+trts$wkr.wide <- trts$wkr.wide %>%
+  mutate(Cnpy_fac=factor(case_when(CnpyOpen==1 ~ "Open",
+                                   CnpyMixed==1 ~ "Mixed",
+                                   CnpyClosed==1 ~ "Closed")))
+wkr.base <- trts$wkr.wide %>% 
+  mutate(RelIntOc=InterocularDistance/HeadWidth,
+         RelLegHind=HindLen/WebersLength,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength)  %>%
+  select(Worker, TubeNo, GENUSID, SPECIESID, SampleDate, mnt25,
+         any_of(response_vars), any_of(X.ls$all)) 
+if(std_method==1) {
+  wkr.df <- wkr.base %>% 
+    mutate(across(any_of(response_vars, X.ls$all), ~c(scale(.))))
+} else if(std_method==2) {
+  wkr.df <- wkr.base %>% group_by(SPECIESID) %>%
+    mutate(across(any_of(response_vars, X.ls$all), ~c(scale(.))))
+} else if(std_method==3) {
+  wkr.df <- wkr.base %>% 
+    mutate(across(any_of(X.ls$all), ~c(scale(.)))) %>%
+    group_by(SPECIESID) %>%
+    mutate(across(any_of(response_vars), ~c(scale(.)))) 
+} 
+
+wkr.df <- wkr.df %>% ungroup %>%
+  mutate(Cnpy=trts$wkr.wide$Cnpy_fac,
+         el_m=trts$wkr.wide$mnt25) %>%
+  group_by(SPECIESID) %>% mutate(nColony=n_distinct(TubeNo)) %>% ungroup %>%
+  filter(nColony >= clny_min) %>%
+  filter(SPECIESID %in% filter(trts$spp_rng, rng >= rng_thresh)$SPECIESID) %>%
+  filter(GENUSID %in% genera_incl) %>%
+  arrange(SPECIESID, TubeNo) 
+
+```
+
+
+
+----------
+
+
+
+# Model loop
+
+```{r model_loop, eval=F, message=F, warning=F}
+for(k in 1:length(response_vars)) {
+  
+  Y_var <- response_vars[k]
+  X_vars <- X.ls[[ifelse(var_set=="hyp", Y_var, var_set)]]
+  cat("----", Y_var, "with predictors", paste(X_vars, collapse=", "), "\n")
+  
+  # formulas for models to compare
+  form.ls <- list(
+    mn_only=bf(
+      as.formula(paste0(Y_var, "~", 
+                        paste(X_vars, collapse="+"),
+                        "+ (1 +", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (1 | TubeNo)"))
+    ),
+    mn_sd_re=bf(
+      as.formula(paste0(Y_var, "~", 
+                        paste(X_vars, collapse="+"),
+                        "+ (1 +", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (1 | TubeNo)")),
+      sigma ~ (1 | SPECIESID)
+    ),
+    mn_sd_full=bf(
+      as.formula(paste0(Y_var, "~", 
+                        paste(X_vars, collapse="+"),
+                        "+ (1 +", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (1 | ID1 | TubeNo)")
+      ),
+      as.formula(paste0("sigma ~",
+                        paste(X_vars, collapse="+"),
+                        "+ (1 + ", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (1 | ID1 | TubeNo)"))
+    ))
+  sp_re <- as.formula(paste("~(", paste(X_vars, collapse="+"), "|SPECIESID)"))
+  
+  
+  # run models
+  mod.ls <- map(form.ls, ~brm(.x, 
+                              prior=c(prior(normal(0, 1), class=Intercept),
+                                      prior(normal(0, 1), class=b),
+                                      prior(normal(0, 1), class=sd)),
+                              data=wkr.df, 
+                              control=list(adapt_delta=0.9))) %>%
+    setNames(names(form.ls))
+  
+  # evaluate models
+  loo_out <- loo(mod.ls[[1]], mod.ls[[2]], mod.ls[[3]],
+                 model_names=names(mod.ls))
+  as_tibble(loo_out$diffs, rownames="model") %>%
+    write_csv(paste0(fig_dir, "loo_", Y_var, std_ext, ".csv"))
+  map_dfr(mod.ls, ~as_tibble(bayes_R2(.x)), .id="model") %>%
+    write_csv(paste0(fig_dir, "R2_", Y_var, std_ext, ".csv"))
+  map_dfr(mod.ls, ~as_tibble(bayes_R2(.x, re_form=sp_re)), .id="model") %>%
+    write_csv(paste0(fig_dir, "R2_spRE_", Y_var, std_ext, ".csv"))
+  
+  
+  # plot conditional effects
+  imap(mod.ls,  ~map2(plot(conditional_effects(.x, spaghetti=T, nsamples=500),
+                           ask=F, plot=F, points=F, 
+                           point_args=list(alpha=0.25, size=0.5, shape=1),
+                           spaghetti_args=list(
+                             colour=adjustcolor("cadetblue", alpha.f=0.5), 
+                             size=0.05),
+                           line_args=list(colour="black", size=1)), .y, 
+                      ~.x + ggtitle(.y) + ylim(-1,1))) %>%
+    unlist(., recursive=F) %>% 
+    ggpubr::ggarrange(plotlist=., nrow=length(mod.ls), ncol=length(X_vars))
+  ggsave(paste0(fig_dir, "cond_eff_", Y_var, std_ext, ".pdf"), 
+         width=3*length(X_vars), height=3*length(mod.ls))
+  
+  # plot population-level estimates
+  p <- map_dfr(mod.ls, ~ .x %>% 
+            gather_draws(`b_.*`, regex=T) %>%
+            median_hdi(.width=c(0.5, 0.8, 0.95)), 
+          .id="model") %>%
+    mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
+           dpar=if_else(grepl("sigma", .variable), "sigma", "mu")) %>%
+    ggplot(aes(y=covariate, x=.value, xmin=.lower, xmax=.upper, colour=model)) +
+    geom_vline(xintercept=0, colour="grey") +
+    geom_pointinterval(position=position_dodge(width=0.5)) +
+    scale_colour_brewer(type="qual", palette=3, direction=-1) +
+    labs(x="value", y="", title=Y_var) + 
+    facet_grid(.~dpar)
+  ggsave(paste0(fig_dir, "b_eff_", Y_var, std_ext, ".pdf"), p, 
+         width=8, height=6)
+  
+  p <- map_dfr(mod.ls, ~ .x %>% 
+            gather_draws(`b_.*`, regex=T), 
+          .id="model") %>%
+    mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
+           dpar=if_else(grepl("sigma", .variable), "sigma", "mu")) %>%
+    ggplot(aes(y=covariate, x=.value, fill=model, group=model)) +
+    geom_vline(xintercept=0, colour="grey") +
+    stat_slab(alpha=0.5, size=0.3, colour="grey30") +
+    scale_colour_brewer(type="qual", palette=3, direction=-1) +
+    scale_fill_brewer(type="qual", palette=3, direction=-1) +
+    labs(x="value", y="", title=Y_var) + 
+    facet_grid(.~dpar)
+  ggsave(paste0(fig_dir, "b_dens_eff_", Y_var, std_ext, ".pdf"), p, 
+         width=8, height=6)
+  
+  # plot distributional parameters
+  post <- mod.ls[[3]]$data %>%
+    add_fitted_draws(mod.ls[[3]], dpar=T) %>%
+    left_join(., 
+              wkr.df %>% group_by(TubeNo) %>% 
+    summarise(el_m=mean(el_m), 
+              across(matches(Y_var), 
+                     .fns=list(mn=mean, sd=sd),
+                     .names="obs_{.fn}")))
+  
+  p <- ggplot(post, aes(x=el_m, y=mu)) + 
+    stat_interval(.width=c(0.5, 0.8, 0.9, 0.95, 0.99), 
+                  point_interval=median_hdi, size=1) +
+    geom_point(data=post %>% group_by(TubeNo) %>% slice_head(n=1), 
+               aes(y=obs_mn), shape=1, size=1, alpha=0.5) +
+    stat_smooth(method="lm", formula=y~x, size=0.25) + 
+    facet_wrap(~SPECIESID, scales="free") + 
+    scale_colour_brewer("HPDI", type="seq") +
+    labs(x="Elevation (m)", y="Colony mean", title=Y_var) +
+    theme(legend.position=c(0.9, 0.08), 
+          legend.key.height=unit(0.1, "cm"))
+  ggsave(paste0(fig_dir, "el_mu_", Y_var, std_ext, ".pdf"), p, 
+         width=9, height=9)
+  
+  p <- ggplot(post, aes(x=el_m, y=sigma)) + 
+    stat_interval(.width=c(0.5, 0.8, 0.9, 0.95, 0.99), 
+                  point_interval=median_hdi, size=1) +
+    geom_point(data=post %>% group_by(TubeNo) %>% slice_head(n=1), 
+               aes(y=obs_sd), shape=1, size=1, alpha=0.5) +
+    stat_smooth(method="lm", formula=y~x, size=0.25) + 
+    facet_wrap(~SPECIESID, scales="free") + 
+    scale_colour_brewer("HPDI", type="seq") +
+    scale_y_log10() +
+    labs(x="Elevation (m)", y="Colony log(sd)", title=Y_var) +
+    theme(legend.position=c(0.9, 0.08), 
+          legend.key.height=unit(0.1, "cm"))
+  ggsave(paste0(fig_dir, "el_sd_", Y_var, std_ext, ".pdf"), p, 
+         width=9, height=9)
+  
+  p <- post %>% group_by(TubeNo) %>% sample_n(1e3) %>%
+    mutate(response=map2(mu, sigma, ~rnorm(10, .x, .y))) %>%
+    unnest(cols=response) %>%
+    ggplot(aes(x=el_m, y=response)) + 
+    stat_interval(.width=c(0.5, 0.6, 0.7, 0.8, 0.9, 0.95), 
+                  point_interval=median_hdi, size=0.8) +
+    stat_smooth(method="lm", formula=y~x, size=0.4, 
+                linetype=2, colour="grey30") + 
+    scale_colour_viridis_d("HPDI", option="E") +
+    facet_wrap(~SPECIESID, scales="free") + 
+    labs(x="Elevation (m)", y=Y_var, 
+         title=paste("Posterior colony-level distributions:", Y_var)) +
+    theme(legend.position=c(0.9, 0.08), 
+          legend.key.height=unit(0.1, "cm"))
+  ggsave(paste0(fig_dir, "el_y_", Y_var, std_ext, ".pdf"), p, 
+         width=9, height=9)
+}
+```
+
+
+```{r}
+
+
+
+```
+
