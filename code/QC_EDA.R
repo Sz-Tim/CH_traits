@@ -212,7 +212,7 @@ trts$wkr.df %>% filter(!is.na(med_R)) %>%
 
 
 # traits across environmental variables
-ggplot(trts$clny.std %>% filter(n_clny > 2), aes(GDD0, mnValue)) + 
+ggplot(trts$clny.std %>% filter(n_clny > 2), aes(GDD5, mnValue)) + 
   facet_wrap(~Trait, scales="free", drop=T) +
   stat_smooth(aes(group=SPECIESID), method="lm", formula=y~x, se=F, size=0.3) +
   stat_smooth(method="lm", formula=y~x, se=F, size=0.7, colour="red") 
@@ -294,7 +294,7 @@ ggplot(trts$wkr.std, aes(Value, v)) + geom_point(alpha=0.1) +
               formula=y~x, se=F, size=0.3) +
   stat_smooth(method="lm", formula=y~x, se=F, size=0.7, colour="red") +
   scale_colour_brewer("", type="qual", palette=2) + 
-  facet_wrap(~Trait, scales="free")
+  facet_wrap(~Trait) + xlim(-4, 4) + ylim(-4, 4)
 
 ggplot(trts$wkr.wide, aes(mnt25, InterocularDistance/HeadWidth)) + geom_point() + 
   stat_smooth(method="lm") + facet_wrap(~SPECIESID, scales="free")
@@ -308,45 +308,6 @@ library(lme4)
 summary(lmer(v ~ I(mnt25/100) + (1|SPECIESID), data=trts$clny.wide))
 summary(lmer(mnValue_WebersLength ~ I(mnt25/100) + (1|SPECIESID), 
              data=trts$clny.wide))
-
-library(rstanarm); library(projpred)
-glmer_data <- trts$clny.wide[,c(12,10,5,13,16:20,23:26)]
-glmer_data <- glmer_data[complete.cases(glmer_data),]
-glmer_data$v_var <- log(glmer_data$v_var)
-for(i in 2:(ncol(glmer_data)-3)) glmer_data[,i] <- scale(glmer_data[,i])
-
-var_clps <- paste0(colnames(glmer_data)[-(1:3)], collapse=" + ")
-glmer_formula <- paste(var_clps, "+ (1 + ", var_clps, "| SPECIESID)")
-
-fit_RE <- stan_glmer(as.formula(paste("v_var ~ ", glmer_formula)),
-                     data=glmer_data, cores=4)#, prior=hs())
-
-plot(fit_RE, pars=c("beta"))
-vs <- varsel(fit_RE)
-solution_terms(vs)[1:(suggest_size(vs)-1)]
-plot(vs, stats=c("elpd", "rmse"))
-
-opt_formula <- paste("v_var ~ AP + aspectN + CnpyMixed + CnpyOpen + GDD0 + ", 
-                     "mnt25 + npp + SampleDate + TAR + ",
-                     "(1 + AP + aspectN + CnpyMixed + GDD0 + mnt25 + npp + ",
-                     "SampleDate + TAR | SPECIESID)")
-opt_RE <- stan_glmer(as.formula(opt_formula),
-                     data=glmer_data, cores=4)#, prior=hs())
-plot(opt_RE, pars=c("beta"))
-
-
-vs_proj <- project(vs)
-library(bayesplot)
-mcmc_areas(as.matrix(fit_RE), pars=colnames(glmer_data[-c(1:3)]))
-mcmc_areas(as.matrix(vs_proj))
-
-
-fit_FE <- stan_glm(as.formula(paste("v_var ~", var_clps)), 
-                   data=glmer_data, family=gaussian())
-plot(fit_FE, pars=c("beta"))
-summary(fit_FE)
-
-loo::loo_compare(loo::loo(fit_RE), loo::loo(fit_FE))
 
 
 
