@@ -314,7 +314,7 @@ shinyApp(
              selectInput(inputId="wkrE",
                   label="Environmental variables",
                   choices=as.list(names(trts$clny.wide)[c(13,18:21,23:24,27:30)]),
-                  selected=c("TwarmQ", "PwarmQ", "npp", "SampleDate"),
+                  selected=c("GDD5", "PwarmQ", "npp", "SampleDate"),
                   multiple=T)),
       column(width=3, 
              selectInput(inputId="wkrT",
