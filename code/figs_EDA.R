@@ -48,7 +48,7 @@ trts <- load_traits(ant_i=ant.ls$all, msr_dir=msr_dir, col_dir=col_dir,
                     fro_names=trait_names$fro, dor_names=trait_names$dor)
 
 
-trait_match <- data.frame(orig=c("v", "HeadLength", "HeadWidth", 
+trait_match <- data.frame(orig=c("grey_md", "HeadLength", "HeadWidth", 
                                  "InterocularDistance", "DVE",
                                  "ScapeLength", "WebersLength",
                                  "HindTibia", "MidTibia", "MesosomaWidth",

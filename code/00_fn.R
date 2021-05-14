@@ -101,21 +101,30 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
         mutate(TubeNo=tubeNo, unit="mm", Trait=dor_names[as.numeric(Trait)])
     }
   }
-  col.ls <- vector("list", length(col.tubes))
+  col.ls <- grey.ls <- vector("list", length(col.tubes))
   for(tube in seq_along(col.tubes)) {
     setTxtProgressBar(pb, tube+length(msr.tubes))
     tubeNo <- col.tubes[tube]
-    nWorkers <- length(dir(paste0(col_dir, tubeNo), "meso[1-9].txt"))
+    wkr.f <- dir(paste0(col_dir, tubeNo), "meso[1-9].txt", full.names=T)
+    grey.ls[[tube]] <- imap(wkr.f, ~read.table(.x, fileEncoding="UTF-16LE", 
+                                               header=T, nrows=1) %>%
+                              select(Gray.Value..Median., Gray.Value..Mean.) %>%
+                              mutate(TubeNo=str_split_fixed(col.tubes[tube], "/", 3)[3], 
+                                     Worker=as.character(.y)) %>%
+                              rename(grey_md=Gray.Value..Median.,
+                                     grey_mn=Gray.Value..Mean.)) %>%
+      do.call('rbind', .)
+    nWorkers <- length(wkr.f)
     meso.hist <- vector("list", length=nWorkers)
     for(i in 1:nWorkers) {
-      meso_i.f <- dir(paste0(col_dir, tubeNo, "/meso", i, " Data/"), full.names=T)
+      meso_i.f <- dir(str_replace(wkr.f[i], ".txt", " Data/"), full.names=T)
       if(length(meso_i.f) > 0) {
         meso.hist[[i]] <- map(meso_i.f, ~t(as.matrix(read.csv(., header=F)))) %>%
           Reduce('+', .) %>%
           as.data.frame(.) %>% setNames(., c("R", "G", "B")) %>%
-          mutate(value=1:256, 
-                 TubeNo=str_split_fixed(col.tubes[tube], "/", 3)[3], 
-                 Worker=as.character(i)) 
+          mutate(value=1:256,
+                 TubeNo=str_split_fixed(col.tubes[tube], "/", 3)[3],
+                 Worker=as.character(i))
       }
     }
     col.ls[[tube]] <- rbind(do.call('rbind', meso.hist))
@@ -133,10 +142,13 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
     mutate(rgbCol=paste0("rgb(", med_R/256, ",", med_G/256, ",", med_B/256, ")"),
            h=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[1,],
            s=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[2,],
-           v=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[3,])
+           v=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[3,]) %>%
+    full_join(., do.call('rbind', grey.ls), by=c("TubeNo", "Worker"))
   col.clny <- col.wkr %>% group_by(TubeNo) %>%
     summarise(R=mean(med_R), G=mean(med_G), B=mean(med_B), 
-              v_var=var(v), v_CV=sd(v)/mean(v)) %>%
+              v_var=var(v), v_CV=sd(v)/mean(v),
+              grey_var=var(grey_md), grey_CV=sd(grey_md)/mean(grey_mn),
+              grey_mn=mean(grey_mn), grey_md=mean(grey_md)) %>%
     mutate(rgbCol=paste0("rgb(", R/256, ",", G/256, ",", B/256, ")"),
            h=rgb2hsv(R, G, B, maxColorValue=255)[1,],
            s=rgb2hsv(R, G, B, maxColorValue=255)[2,],
@@ -162,11 +174,15 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
   wkr.std <- wkr.df %>% 
     group_by(SPECIESID, Trait) %>%
     mutate(Value=(Value-mean(Value, na.rm=T))/sd(Value, na.rm=T), 
-           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T))
+           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T),
+           grey_mn=(grey_mn-mean(grey_mn, na.rm=T))/sd(grey_mn, na.rm=T),
+           grey_md=(grey_md-mean(grey_md, na.rm=T))/sd(grey_md, na.rm=T))
   clny.std <- clny.df %>% 
     group_by(SPECIESID, Trait) %>%
     mutate(mnValue=(mnValue-mean(mnValue, na.rm=T))/sd(mnValue, na.rm=T), 
-           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T))
+           v=(v-mean(v, na.rm=T))/sd(v, na.rm=T),
+           grey_mn=(grey_mn-mean(grey_mn, na.rm=T))/sd(grey_mn, na.rm=T),
+           grey_md=(grey_md-mean(grey_md, na.rm=T))/sd(grey_md, na.rm=T))
   
   # wide format
   wkr.wide <- wkr.df %>% 

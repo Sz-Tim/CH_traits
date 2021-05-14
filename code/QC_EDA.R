@@ -253,7 +253,7 @@ trts$wkr.std %>% group_by(TubeNo, Worker) %>%
   ggplot(aes(SampleDate, v)) + geom_point(alpha=0.5, shape=1) +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") +
   facet_wrap(~SPECIESID)
-ggplot(trts$clny.std, aes(SampleDate, log(v_var))) + geom_point()  + 
+ggplot(trts$clny.std, aes(SampleDate, grey_md)) + geom_point()  + 
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") 
 
 ggplot(trts$wkr.wide, aes(SampleDate, WebersLength)) + geom_point(alpha=0.5) +
@@ -271,18 +271,18 @@ ggplot(trts$clny.df, aes(aspectN, log(v_var))) + geom_point()  +
   stat_smooth(aes(group=SPECIESID), method="lm", se=F, colour="gray") 
 
 
-ggplot(trts$wkr.wide, aes(WebersLength, v)) + geom_point() + 
+ggplot(trts$wkr.wide, aes(WebersLength, grey_md)) + geom_point() + 
   stat_smooth(aes(group=SPECIESID), method="lm", size=0.5, colour="gray30") + 
   facet_wrap(~SPECIESID, scales="free")
 
-ggplot(trts$wkr.std %>% filter(Trait=="WebersLength"), aes(Value, v)) +
+ggplot(trts$wkr.std %>% filter(Trait=="WebersLength"), aes(Value, grey_md)) +
   geom_point() + 
   stat_smooth(aes(group=SPECIESID, colour=GENUSID), method="lm", 
               formula=y~x, se=F, size=1) +
   stat_smooth(method="lm", formula=y~x, se=F, size=2, colour="red") +
   scale_colour_brewer("", type="qual", palette=2)
 
-ggplot(trts$wkr.df %>% filter(Trait=="WebersLength"), aes(Value, v)) +
+ggplot(trts$wkr.df %>% filter(Trait=="WebersLength"), aes(Value, grey_md)) +
   geom_point(shape=1) + 
   stat_smooth(aes(group=SPECIESID), method="lm", 
               formula=y~x, se=F, size=0.5) +
@@ -321,12 +321,12 @@ summary(lmer(mnValue_WebersLength ~ I(mnt25/100) + (1|SPECIESID),
 
 
 # Some PCA
-complete.df <- trts$wkr.wide[complete.cases(trts$wkr.wide[,c(16,34:40,42:47)]),]
-complete.df[,c(34:40,42:47)] <- complete.df[,c(34:40,42:47)]/complete.df$WebersLength
-pairs(complete.df[,c(16,34:40,42:47)], lower.panel=panel.smooth, cex=0.5)
+complete.df <- trts$wkr.wide[complete.cases(trts$wkr.wide[,c(16,17,36:42,44:49)]),]
+complete.df[,c(36:42,44:49)] <- complete.df[,c(36:42,44:49)]/complete.df$WebersLength
+pairs(complete.df[,c(16,17,36:42,44:49)], lower.panel=panel.smooth, cex=0.5)
 
 library(vegan)
-pca <- rda(complete.df[,c(16,34:40,42:47)])
+pca <- rda(complete.df[,c(16,17,36:42,44:49)])
 
 pdf("eda/00_PCA_Myrmica.pdf", width=8, height=8)
 {biplot(pca, type=c("text", "points"), cex=1.5)
@@ -337,8 +337,8 @@ legend("topleft", col=viridis::viridis_pal()(n_distinct(complete.df$GENUSID)),
 }
 dev.off()
 
-pca <- princomp(complete.df[,c(16,34:40,42:47)]) # 16 = v
-pc <- prcomp(complete.df[,c(16,34:40,42:47)])
+pca <- princomp(complete.df[,c(16,17,45:49)]) # 16 = v
+pc <- prcomp(complete.df[,c(16,17,45:49)])
 km_scree <- map(1:20, ~sum(kmeans(pc$x[,1:2], ., iter.max=1e3, nstart=25)$withinss))
 plot(1:length(km_scree), km_scree, type="b")
 
