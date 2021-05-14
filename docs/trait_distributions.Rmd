@@ -43,9 +43,9 @@ gis_dir <- "../2_gis/data/VD_21781/"
 rast_end <- "_VD_21781.tif"
 msr_dir <- "data/img/"
 col_dir <- "data/img/"
-min_clny_size <- 3
+min_clny_size <- 2
 
-trait_match <- data.frame(orig=c("v", 
+trait_match <- data.frame(orig=c("v", "grey_md",
                                  "HeadLength", "HeadWidth", 
                                  "RelIntOc",
                                  "ScapeLength", "WebersLength",
@@ -53,7 +53,7 @@ trait_match <- data.frame(orig=c("v",
                                  "MesosomaLength", "HindFemur", "MidFemur",
                                  "MidLen", "HindLen", "MesoSA", 
                                  "HeadShape", "PronotExp", "ScapeProp"),
-                          full=c("Color (lightness)", 
+                          full=c("Color (lightness)", "Color (med. grey)",
                                  "Head Length", "Head Width",
                                  "Interocular Distance",
                                  "Scape Length", "Webers Length",
@@ -63,7 +63,7 @@ trait_match <- data.frame(orig=c("v",
                                  "Leg Length (hind)", 
                                  "Mesosoma SA", "Head Shape",
                                  "Pronotal Expansion", "Scape Proportion"),
-                          relative=c(F, 
+                          relative=c(F, F,
                                      F, F,
                                      T, 
                                      F, F, 

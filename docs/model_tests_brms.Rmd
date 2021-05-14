@@ -61,25 +61,26 @@ out_dir <- "temp/"
 std_method <- 3 
 
 # minimum number of colonies for species to be included
-clny_min <- 3
+clny_min <- 2
 
 # minimum elevational range for species to be included
 rng_thresh <- 200
 
 # select variable set
-var_set <- c("all", "el", "climate", "hyp")[3]
+var_set <- c("all", "el", "climate", "hyp")[2]
 fig_dir <- paste0(fig_dir, var_set, "/")
 
 # response variables to loop through
 response_vars <- c("v", 
-                   # "HeadWidth",
-                   # "HeadLength",
-                   # "HeadShape",
-                   # "RelIntOc",
-                   # "ScapeLength",
-                   # "ScapeProp",
-                   # "WebersLength",
-                   # "PronotExp",
+                   "grey_md",
+                   "HeadWidth",
+                   "HeadLength",
+                   "HeadShape",
+                   "RelIntOc",
+                   "ScapeLength",
+                   "ScapeProp",
+                   "WebersLength",
+                   "PronotExp",
                    "RelLegHind")
 
 # covariates: all, el, and specific hypotheses
@@ -88,6 +89,7 @@ X.ls <- list("all"=c("GDD5", "PwarmQ","Pseas", "Tseas",
              "el"=c("mnt25", "SampleDate"),
              "climate"=c("GDD5", "PwarmQ", "Pseas", "Tseas", "SampleDate"),
              "v"=c("GDD5", "PwarmQ", "aspectN", "Cnpy", "SampleDate"),
+             "grey_md"=c("GDD5", "PwarmQ", "aspectN", "Cnpy", "SampleDate"),
              "HeadWidth"=c("GDD5", "PwarmQ", "SampleDate"),
              "WebersLength"=c("GDD5", "PwarmQ", "SampleDate"),
              "RelLegHind"=c("GDD5", "npp", "Cnpy", "SampleDate"),
@@ -190,7 +192,7 @@ for(k in 1:length(response_vars)) {
                         "+ (1 | TubeNo)"))
     ),
     mn_sd_re=bf(
-      as.formula(paste0(Y_var, "~", 
+      as.formula(paste0(Y_var, "~",
                         paste(X_vars, collapse="+"),
                         "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
                         "+ (1 | TubeNo)")),
@@ -277,17 +279,38 @@ for(k in 1:length(response_vars)) {
   
   
   # plot species-level slopes
-  map_dfr(mod.ls, ~ .x %>% 
+  b_df <- map_dfr(mod.ls, ~ .x %>% 
             gather_draws(`b_.*`, regex=T) %>%
             median_hdi(.width=c(0.5, 0.8, 0.95)), 
           .id="model") %>%
     mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
            dpar=if_else(grepl("sigma", .variable), "sigma", "mu"))
-  map_dfr(mod.ls, ~ .x %>% 
+  r_df <- map_dfr(mod.ls, ~ .x %>% 
             gather_draws(`r_SPECIESID.*`, regex=T) %>%
             median_hdi(.width=c(0.5, 0.8, 0.95)), 
           .id="model") %>%
-    mutate(covariate=str_remove(str_split_fixed(.variable, ",", 2)[,2], "]"))
+    mutate(covariate=str_remove(str_split_fixed(.variable, ",", 2)[,2], "]"),
+           dpar=if_else(grepl("sigma", .variable), "sigma", "mu"),
+           species=str_split_fixed(str_split_fixed(.variable, "\\[", 2)[,2], 
+                                   ",", 2)[,1])
+  spp_df <- full_join(b_df %>% select(-.variable), 
+                      r_df %>% select(-.variable), 
+                      by=c("model", ".point", ".width", 
+                           ".interval", "covariate", "dpar"),
+                      suffix=c("_b", "_r")) %>%
+    mutate(.value=.value_b + .value_r,
+           .lower=.lower_b + .lower_r,
+           .upper=.upper_b + .upper_r) %>%
+    select(-contains("_b"), -contains("_r"))
+  p <- ggplot(filter(spp_df, model=="mn_sd_full"), 
+         aes(y=species, x=.value, xmin=.lower, xmax=.upper)) +
+    geom_vline(xintercept=0, colour="grey") +
+    geom_pointinterval(alpha=0.5, size=0.5, shape=1) +
+    scale_fill_brewer(type="qual", palette=3, direction=-1) +
+    labs(x="value", y="", title=Y_var) + 
+    facet_grid(covariate~dpar)
+  ggsave(paste0(fig_dir, "b_spp_eff_", Y_var, std_ext, ".png"), p, 
+         width=5, height=5*length(X_vars))
   
   # plot distributional parameters
   post <- mod.ls[[3]]$data %>%
