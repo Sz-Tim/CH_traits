@@ -83,6 +83,24 @@ focus_traits <- c("Scape Proportion",
 
 trts <- readRDS("data/trts.rds")
 
+wkr_all.df <- trts$wkr.wide %>% 
+  select(-`NA`) %>%
+  mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
+         RelIntOc=InterocularDistance/HeadWidth,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength) %>%
+  select(one_of("Worker", "TubeNo", "SPECIESID", trait_match$orig)) %>%
+  pivot_longer(cols=3+(seq_along(trait_match$full)), 
+               names_to="Trait", values_to="Value") %>%
+  group_by(Trait, SPECIESID) %>% 
+  mutate(Value_std=scale(Value)[,1]) %>%
+  ungroup %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait_orig=Trait,
+         Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
+  filter(!is.na(Value))
+
 wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
   select(-`NA`) %>%
   mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
@@ -100,6 +118,12 @@ wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>%
          Trait_orig=Trait,
          Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
   filter(!is.na(Value))
+
+clny_all.df <- wkr_all.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
+  summarise(mnValue=mean(Value, na.rm=T),
+            sdValue=sd(Value, na.rm=T),
+            mnValue_std=mean(Value_std, na.rm=T),
+            sdValue_std=sd(Value_std, na.rm=T))
 clny.df <- wkr.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
   summarise(mnValue=mean(Value, na.rm=T),
             sdValue=sd(Value, na.rm=T),
@@ -143,7 +167,7 @@ The questions for this section are:
 First, it's worth just looking at the distribution of traits within each species. We can do this for each trait, ignoring which workers came from which colony, and just look at the distribution of the traits, $y$.
 
 ```{r dens_y, echo=F, message=F, warning=F, fig.height=7}
-wkr_dens <- wkr.df %>% 
+wkr_dens <- wkr_all.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait=factor(Trait, levels=focus_traits))
@@ -151,6 +175,20 @@ ggplot(wkr_dens, aes(Value, SPECIESID, fill=GENUSID)) +
   ggridges::geom_density_ridges(size=0.25, scale=0.95, rel_min_height=0.0001) +
   scale_fill_brewer("", type="qual", palette=2) + 
   facet_wrap(~Trait, scales="free_x", nrow=2, labeller=label_wrap_gen(15)) +
+  labs(x=expression('Value:'~~y[ijs]), y="", title="Worker traits") + 
+  theme(legend.position=c(0.9, 0.25),
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r box_y, echo=F, message=F, warning=F, fig.height=7}
+wkr_dens %>%
+  mutate(SPECIESID=factor(SPECIESID, 
+                          levels=rev(sort(unique(clny_all.df$SPECIESID))))) %>%
+  ggplot(aes(Value, SPECIESID)) + 
+  geom_boxplot(aes(fill=GENUSID), outlier.shape=1, outlier.size=0.1, size=0.25) +
+  scale_fill_brewer("", type="qual", palette=2) + 
+  facet_wrap(~Trait, nrow=2, labeller=label_wrap_gen(15), scales="free_x") +
   labs(x=expression('Value:'~~y[ijs]), y="", title="Worker traits") + 
   theme(legend.position=c(0.9, 0.25),
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
@@ -169,7 +207,7 @@ Within genera, *Myrmica* species are most variable for **scape proportion** and 
 If we layer on the distribution of the colony means, $\bar{y}_{js}$, we can see whether the workers are distributed much more broadly than the colony means, which would indicate that most of the variation occurs within colonies, or whether the distribution of colony means mirrors that of the workers, which would indicate that the variation among workers is structured among colonies. The distribution of $y_{ijs}$ is partially transparent, and the distribution of $\bar{y}_{js}$ is solid.
 
 ```{r dens_ybar_y, echo=F, fig.height=7, message=FALSE, warning=FALSE}
-ybar_dens <- clny.df %>% 
+ybar_dens <- clny_all.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait=factor(Trait, levels=focus_traits))
@@ -198,7 +236,7 @@ In contrast, most of the relative traits (top row) show markedly narrower distri
 We can also look at the distribution of intra-colony standard deviations for each species and trait. I'm not sure this is very telling, aside from maybe the fact that the distributions are so similar across species for each trait.
 
 ```{r dens_dlog, echo=F, message=F, warning=F, fig.height=7}
-clny.df %>% 
+clny_all.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait=factor(Trait, levels=focus_traits)) %>%
@@ -221,13 +259,33 @@ Lastly, we can see the distribution of intra-colony CVs ($\frac{d_{js}}{\bar{y}_
 ```{r dens_CV, echo=F, message=F, warning=F, fig.height=7}
 sp_CV <- wkr_dens %>% group_by(SPECIESID, GENUSID, Trait) %>%
   summarise(CV=sd(Value)/mean(Value))
-clny.df %>% 
+clny_all.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait=factor(Trait, levels=focus_traits)) %>%
   ggplot(aes(sdValue/mnValue, SPECIESID)) + 
   ggridges::geom_density_ridges(aes(fill=GENUSID), 
                                 size=0.25, rel_min_height=0.0001) +
+  geom_point(data=sp_CV, aes(x=CV), shape="+", size=3) + 
+  scale_fill_brewer("", type="qual", palette=2) + 
+  scale_x_continuous(labels=scales::percent_format(accuracy=1)) +
+  facet_wrap(~Trait, nrow=2, labeller=label_wrap_gen(15), scales="free_x") +
+  labs(x=expression('Intra-colony CV:'~~d[js]/bar(y[js])), y="", 
+       title="Within-colony CV (%)") +
+  theme(legend.position=c(0.9, 0.25),
+        panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r box_CV, echo=F, message=F, warning=F, fig.height=7}
+clny_all.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits),
+         SPECIESID=factor(SPECIESID, 
+                          levels=rev(sort(unique(clny_all.df$SPECIESID))))) %>%
+  ggplot(aes(sdValue/mnValue, SPECIESID)) + 
+  geom_boxplot(aes(fill=GENUSID), outlier.shape=1, outlier.size=0.1, size=0.25) +
   geom_point(data=sp_CV, aes(x=CV), shape="+", size=3) + 
   scale_fill_brewer("", type="qual", palette=2) + 
   scale_x_continuous(labels=scales::percent_format(accuracy=1)) +
@@ -239,11 +297,12 @@ clny.df %>%
   spp_fonts
 ```
 
+
 We can see that generally the intra-colony CV is somewhere around 0-10%, which seems fairly low. 
 
 
 ```{r scatter_CV, echo=F, message=F, warning=F, fig.height=5}
-clny.df %>% 
+clny_all.df %>% 
   filter(Trait %in% focus_traits) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait=factor(Trait, levels=focus_traits)) %>%
@@ -265,6 +324,24 @@ clny.df %>%
        title="Species-level CV vs. intra-colony CV") +
   theme(legend.position=c(0.9, 0.25),
         panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
+  spp_fonts
+```
+
+```{r scatter_CV2, echo=F, message=F, warning=F, fig.height=8}
+clny_all.df %>% 
+  filter(Trait %in% focus_traits) %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         Trait=factor(Trait, levels=focus_traits)) %>%
+  left_join(., sp_CV, by=c("SPECIESID", "GENUSID", "Trait")) %>%
+  ggplot(aes((sdValue/mnValue)/CV)) + 
+  geom_density(aes(group=SPECIESID, colour=GENUSID)) +
+  geom_vline(xintercept=1, size=0.25, colour="gray30") +
+  scale_colour_brewer("", type="qual", palette=2) + 
+  facet_grid(GENUSID~Trait, labeller=label_wrap_gen(15), 
+             scales="free_y", space="free_y") +
+  labs(x='Intra-colony CV : Species-level CV', 
+       title="Species-level CV vs. intra-colony CV") +
+  theme(panel.grid.major.y=element_line(colour="gray80", size=0.2)) +
   spp_fonts
 ```
 
@@ -498,7 +575,8 @@ VC_traitInSpp <- map2_dfr(
   mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
   mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
          Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
-                          "Relative", "Absolute"))
+                          "Relative", "Absolute")) %>%
+  mutate(Trait=factor(Trait, levels=focus_traits))
 VC_CI_traitInSpp <- map2_dfr(
   sp.trait.df$Trait, sp.trait.df$SPECIESID,
   ~fitVCA(Value~TubeNo,
@@ -510,7 +588,8 @@ VC_CI_traitInSpp <- map2_dfr(
   mutate(Effect=Effect_lu$display[match(component, Effect_lu$vca)]) %>%
   mutate(Effect=factor(Effect, levels=rev(unique(Effect))),
          Relative=if_else(trait_match$relative[match(Trait, trait_match$full)],
-                          "Relative", "Absolute"))
+                          "Relative", "Absolute")) %>%
+  mutate(Trait=factor(Trait, levels=focus_traits))
 ```
 
 ```{r varPart_sp_figs_1, echo=F, message=F, warning=F, fig.height=6}
@@ -548,6 +627,14 @@ ggplot(VC_CI_traitInSpp, aes(y=SPECIESID, colour=Effect)) +
 
 And we can assess this more rigorously with a GLMM, with logit-linked proportion of variance predicted by *Relative* and random effects for species. Maybe that's the right way to do it...?
 ```{r varPart_sp_stats}
+library(brms)
+CV_trait.brms <- brm(CV ~ 0 + Trait * Effect + (1|SPECIESID), 
+  data=filter(VC_traitInSpp, Effect != "Total") %>%
+    mutate(CV=`CV[%]`,
+           Trait=factor(Trait, levels=focus_traits, 
+                        labels=unique(paste0(str_sub(Relative, 1, 3), 
+                                             ": ", Trait)))))
+conditional_effects(CV_trait.brms)
 CV_trait.lm <- lmer(
   `CV[%]` ~ 0 + Trait * Effect + (1|SPECIESID), 
   data=filter(VC_traitInSpp, Effect != "Total") %>%
@@ -558,11 +645,16 @@ car::Anova(CV_trait.lm, type="III")
 sjPlot::plot_model(CV_trait.lm, type="int", colors=varPart_cols) + coord_flip() 
 summary(pairs(emmeans::lsmeans(CV_trait.lm, ~Trait * Effect)), type="response")
 
+
+CV_Rel.brms <- brm(CV ~ 0 + Effect * Relative + (1|SPECIESID), 
+  data=filter(VC_traitInSpp, Effect != "Total") %>%
+    mutate(CV=`CV[%]`))
+conditional_effects(CV_Rel.brms)
 CV_Rel.lm <- lmer(
-  `CV[%]` ~ 0 + Effect * Relative + (1|SPECIESID), 
+  `CV[%]` ~ 0 + Relative * Effect + (1|SPECIESID), 
   data=filter(VC_traitInSpp, Effect != "Total"))
 car::Anova(CV_Rel.lm, type="III")
-sjPlot::plot_model(CV_Rel.lm, type="int") + coord_flip() 
+sjPlot::plot_model(CV_Rel.lm, type="int", colors=varPart_cols) + coord_flip() 
 summary(pairs(emmeans::lsmeans(CV_Rel.lm, ~Relative * Effect)), type="response")
 ```
 
@@ -586,7 +678,7 @@ Here is some PCA.
 What traits drive differences among workers? Do they separate into clusters based on taxonomy? Relative traits are shown in red, with absolute traits in blue. 
 
 ```{r PCA_all_wkr, echo=F, message=F, warning=F}
-wkr.df_wide <- wkr.df %>% 
+wkr.df_wide <- wkr_all.df %>% 
   select(-Value_std, -Trait_orig) %>%
   filter(Trait %in% focus_traits) %>%
   pivot_wider(names_from="Trait", values_from=c("Value")) %>%
@@ -635,7 +727,7 @@ Do colony means show a similar pattern as individual workers?
 complete.clny <- complete.df %>% group_by(GENUSID, SPECIESID, TubeNo) %>%
   summarise(across(where(is.numeric), list(mn=mean, 
                                            sd=~log(sd(.x)), 
-                                           CV=~log(sd(.x))/mean(.x)))) %>%
+                                           CV=~sd(.x)/mean(.x)))) %>%
   ungroup
 
 pc_ybar <- prcomp(select(complete.clny, all_of(paste0(focus_traits, "_mn"))))
@@ -790,8 +882,8 @@ for(i in 1:n_distinct(complete.df$GENUSID)) {
     scale_colour_viridis_d("") + scale_fill_viridis_d("") +
     xlim(range(c(complete_i$PC1, pca_cov[[i]]$PC1))*1.1) +
     ylim(range(c(complete_i$PC2, pca_cov[[i]]$PC2))*1.1) +
-    guides(fill=guide_legend(ncol=4, nrow=3), 
-           colour=guide_legend(ncol=4, nrow=3)) +
+    guides(fill=guide_legend(ncol=4, nrow=4), 
+           colour=guide_legend(ncol=4, nrow=4)) +
     labs(x=paste0("PC1 (", round(summary(pc_i)$importance[2,1],3)*100, "%)"),
          y=paste0("PC2 (", round(summary(pc_i)$importance[2,2],3)*100, "%)"),
          title=gen_i) +
