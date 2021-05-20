@@ -43,6 +43,33 @@ trts <- readRDS("data/trts.rds")
 
 fig_dir <- "eda/"
 out_dir <- "temp/"
+
+trait_match <- data.frame(orig=c("v", "grey_md",
+                                 "HeadLength", "HeadWidth", 
+                                 "RelIntOc",
+                                 "ScapeLength", "WebersLength",
+                                 "HindTibia", "MidTibia", "MesosomaWidth",
+                                 "MesosomaLength", "HindFemur", "MidFemur",
+                                 "MidLen", "HindLen", "RelLegHind", "MesoSA", 
+                                 "HeadShape", "PronotExp", "ScapeProp"),
+                          full=c("Color (lightness)", "Color (med. grey)",
+                                 "Head Length", "Head Width",
+                                 "Interocular Distance",
+                                 "Scape Length", "Webers Length",
+                                 "Hind Tibia", "Mid Tibia", "Pronotum Width",
+                                 "Mesosoma Length", "Hind Femur", "Mid Femur",
+                                 "Leg Length (mid)", 
+                                 "Leg Length (hind)", "Leg Length (hind)", 
+                                 "Mesosoma SA", "Head Shape",
+                                 "Pronotal Expansion", "Scape Proportion"),
+                          relative=c(F, F,
+                                     F, F,
+                                     T, 
+                                     F, F, 
+                                     F, F, F, 
+                                     F, F, F,
+                                     T, T, T, F, 
+                                     T, T, T))
 ```
 
 
@@ -61,23 +88,23 @@ out_dir <- "temp/"
 std_method <- 3 
 
 # minimum number of colonies for species to be included
-clny_min <- 2
+clny_min <- 3
 
 # minimum elevational range for species to be included
 rng_thresh <- 200
 
 # select variable set
-var_set <- c("all", "el", "climate", "hyp")[2]
+var_set <- c("all", "el", "climate", "hyp")[3]
 fig_dir <- paste0(fig_dir, var_set, "/")
 
 # response variables to loop through
 response_vars <- c("v", 
-                   "grey_md",
+                   # "grey_md",
                    "HeadWidth",
                    "HeadLength",
                    "HeadShape",
                    "RelIntOc",
-                   "ScapeLength",
+                   # "ScapeLength",
                    "ScapeProp",
                    "WebersLength",
                    "PronotExp",
@@ -85,16 +112,20 @@ response_vars <- c("v",
 
 # covariates: all, el, and specific hypotheses
 X.ls <- list("all"=c("GDD5", "PwarmQ","Pseas", "Tseas", 
-                     "npp", "aspectN", "Cnpy", "SampleDate"),
+                     "npp", "SampleDate"),
              "el"=c("mnt25", "SampleDate"),
-             "climate"=c("GDD5", "PwarmQ", "Pseas", "Tseas", "SampleDate"),
-             "v"=c("GDD5", "PwarmQ", "aspectN", "Cnpy", "SampleDate"),
-             "grey_md"=c("GDD5", "PwarmQ", "aspectN", "Cnpy", "SampleDate"),
-             "HeadWidth"=c("GDD5", "PwarmQ", "SampleDate"),
-             "WebersLength"=c("GDD5", "PwarmQ", "SampleDate"),
-             "RelLegHind"=c("GDD5", "npp", "Cnpy", "SampleDate"),
-             "PronotExp"=c("npp", "Cnpy", "SampleDate"),
-             "RelIntOc"=c("npp", "Cnpy", "SampleDate"))
+             "climate"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "v"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "grey_md"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "HeadWidth"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "HeadLength"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "HeadShape"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "WebersLength"=c("TwarmQ", "PwarmQ", "SampleDate"),
+             "RelLegHind"=c("TwarmQ", "npp", "SampleDate"),
+             "ScapeProp"=c("TwarmQ", "npp", "SampleDate"),
+             "ScapeLength"=c("TwarmQ", "npp", "SampleDate"),
+             "PronotExp"=c("TwarmQ", "npp", "SampleDate"),
+             "RelIntOc"=c("TwarmQ", "npp", "SampleDate"))
 genera_incl <- c("Myrm", 
                  "Mani",
                  "Lasi",
@@ -104,6 +135,13 @@ genera_incl <- c("Myrm",
                  "Form",
                  "Apha"
                  )
+
+cov_names <- tibble(orig=c("TwarmQ", "GDD5", "PwarmQ", 
+                           "Pseas", "Tseas", 
+                           "SampleDate", "mnt25", "npp"),
+                    full=c("Temp. (WarmQ)", "Temp. (GDD)", "Precip. (WarmQ)", 
+                           "Precip. Seasonality", "Temp. Seasonality", 
+                           "Date", "Elevation", "NPP"))
 
 
 # wkr.df -----------------------------------------------------------------------
@@ -185,28 +223,28 @@ for(k in 1:length(response_vars)) {
   
   # formulas for models to compare
   form.ls <- list(
-    mn_only=bf(
-      as.formula(paste0(Y_var, "~", 
-                        paste(X_vars, collapse="+"),
-                        "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
-                        "+ (1 | TubeNo)"))
-    ),
-    mn_sd_re=bf(
-      as.formula(paste0(Y_var, "~",
-                        paste(X_vars, collapse="+"),
-                        "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
-                        "+ (1 | TubeNo)")),
-      sigma ~ (1 | SPECIESID)
-    ),
+    # mn_only=bf(
+    #   as.formula(paste0(Y_var, "~", 
+    #                     paste(X_vars, collapse="+"),
+    #                     "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
+    #                     "+ (1 | TubeNo)"))
+    # ),
+    # mn_sd_re=bf(
+    #   as.formula(paste0(Y_var, "~",
+    #                     paste(X_vars, collapse="+"),
+    #                     "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
+    #                     "+ (1 | TubeNo)")),
+    #   sigma ~ (1 | SPECIESID)
+    # ),
     mn_sd_full=bf(
       as.formula(paste0(Y_var, "~", 
                         paste(X_vars, collapse="+"),
-                        "+ (", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (", paste(X_vars, collapse="+"), "|SPECIESID/GENUSID)",
                         "+ (1 | ID1 | TubeNo)")
       ),
       as.formula(paste0("sigma ~",
                         paste(X_vars, collapse="+"),
-                        "+ (1 + ", paste(X_vars, collapse="+"), "|SPECIESID)",
+                        "+ (1 + ", paste(X_vars, collapse="+"), "|SPECIESID/GENUSID)",
                         "+ (1 | ID1 | TubeNo)"))
     ))
   sp_re <- as.formula(paste("~(", paste(X_vars, collapse="+"), "|SPECIESID)"))
@@ -216,20 +254,21 @@ for(k in 1:length(response_vars)) {
   mod.ls <- map(form.ls, ~brm(.x, 
                               prior=c(prior(normal(0, 1), class=Intercept),
                                       prior(normal(0, 1), class=b),
-                                      prior(normal(0, 1), class=sd)),
+                                      prior(normal(0, 3), class=sd),
+                                      prior(lkj(0.5), class=L)),
                               data=wkr.df, inits=0,
                               control=list(adapt_delta=0.9))) %>%
     setNames(names(form.ls))
   
   # evaluate models
-  loo_out <- loo(mod.ls[[1]], mod.ls[[2]], mod.ls[[3]],
-                 model_names=names(mod.ls))
-  as_tibble(loo_out$diffs, rownames="model") %>%
-    write_csv(paste0(fig_dir, "loo_", Y_var, std_ext, ".csv"))
-  map_dfr(mod.ls, ~as_tibble(bayes_R2(.x)), .id="model") %>%
-    write_csv(paste0(fig_dir, "R2_", Y_var, std_ext, ".csv"))
-  map_dfr(mod.ls, ~as_tibble(bayes_R2(.x, re_form=sp_re)), .id="model") %>%
-    write_csv(paste0(fig_dir, "R2_spRE_", Y_var, std_ext, ".csv"))
+  # loo_out <- loo(mod.ls[[1]], mod.ls[[2]], mod.ls[[3]],
+  #                model_names=names(mod.ls))
+  # as_tibble(loo_out$diffs, rownames="model") %>%
+  #   write_csv(paste0(fig_dir, "loo_", Y_var, std_ext, ".csv"))
+  # map_dfr(mod.ls, ~as_tibble(bayes_R2(.x)), .id="model") %>%
+  #   write_csv(paste0(fig_dir, "R2_", Y_var, std_ext, ".csv"))
+  # map_dfr(mod.ls, ~as_tibble(bayes_R2(.x, re_form=sp_re)), .id="model") %>%
+  #   write_csv(paste0(fig_dir, "R2_spRE_", Y_var, std_ext, ".csv"))
   
   
   # plot conditional effects
@@ -253,29 +292,39 @@ for(k in 1:length(response_vars)) {
           .id="model") %>%
     mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
            dpar=if_else(grepl("sigma", .variable), "sigma", "mu")) %>%
-    ggplot(aes(y=covariate, x=.value, xmin=.lower, xmax=.upper, colour=model)) +
+    filter(covariate != "Intercept") %>%
+    ggplot(aes(y=covariate, x=.value, xmin=.lower, xmax=.upper)) +
     geom_vline(xintercept=0, colour="grey") +
     geom_pointinterval(position=position_dodge(width=0.5)) +
-    scale_colour_brewer(type="qual", palette=3, direction=-1) +
+    # scale_colour_brewer(type="qual", palette=3, direction=-1) +
     labs(x="value", y="", title=Y_var) + 
     facet_grid(.~dpar)
   ggsave(paste0(fig_dir, "b_eff_", Y_var, std_ext, ".png"), p, 
          width=8, height=2*length(X_vars))
   
-  p <- map_dfr(mod.ls, ~ .x %>% 
-            gather_draws(`b_.*`, regex=T), 
+  map_dfr(mod.ls, ~ .x %>% 
+            gather_draws(`b_.*`, regex=T) %>%
+            median_hdi(.width=c(0.5, 0.8, 0.95)), 
           .id="model") %>%
     mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
-           dpar=if_else(grepl("sigma", .variable), "sigma", "mu")) %>%
-    ggplot(aes(y=covariate, x=.value, fill=model, group=model)) +
-    geom_vline(xintercept=0, colour="grey") +
-    stat_slab(alpha=0.5, size=0.3, colour="grey30") +
-    scale_colour_brewer(type="qual", palette=3, direction=-1) +
-    scale_fill_brewer(type="qual", palette=3, direction=-1) +
-    labs(x="value", y="", title=Y_var) + 
-    facet_grid(.~dpar)
-  ggsave(paste0(fig_dir, "b_dens_eff_", Y_var, std_ext, ".png"), p, 
-         width=8, height=2*length(X_vars))
+           dpar=if_else(grepl("sigma", .variable), "sigma", "mu"),
+           Yvar=Y_var) %>%
+    write_csv(paste0(fig_dir, "b_eff_", Y_var, std_ext, ".csv"))
+  
+  # p <- map_dfr(mod.ls, ~ .x %>% 
+  #           gather_draws(`b_.*`, regex=T), 
+  #         .id="model") %>%
+  #   mutate(covariate=str_remove(.variable, "^(b_sigma_|b_)"),
+  #          dpar=if_else(grepl("sigma", .variable), "sigma", "mu")) %>%
+  #   ggplot(aes(y=covariate, x=.value, fill=model, group=model)) +
+  #   geom_vline(xintercept=0, colour="grey") +
+  #   stat_slab(alpha=0.5, size=0.3, colour="grey30") +
+  #   scale_colour_brewer(type="qual", palette=3, direction=-1) +
+  #   scale_fill_brewer(type="qual", palette=3, direction=-1) +
+  #   labs(x="value", y="", title=Y_var) + 
+  #   facet_grid(.~dpar)
+  # ggsave(paste0(fig_dir, "b_dens_eff_", Y_var, std_ext, ".png"), p, 
+  #        width=8, height=2*length(X_vars))
   
   
   # plot species-level slopes
@@ -301,7 +350,8 @@ for(k in 1:length(response_vars)) {
     mutate(.value=.value_b + .value_r,
            .lower=.lower_b + .lower_r,
            .upper=.upper_b + .upper_r) %>%
-    select(-contains("_b"), -contains("_r"))
+    select(-contains("_b"), -contains("_r")) %>%
+    filter(!grepl("_[A-Z]", species))
   p <- ggplot(filter(spp_df, model=="mn_sd_full"), 
          aes(y=species, x=.value, xmin=.lower, xmax=.upper)) +
     geom_vline(xintercept=0, colour="grey") +
@@ -313,8 +363,8 @@ for(k in 1:length(response_vars)) {
          width=5, height=5*length(X_vars))
   
   # plot distributional parameters
-  post <- mod.ls[[3]]$data %>%
-    add_fitted_draws(mod.ls[[3]], dpar=T) %>%
+  post <- mod.ls[[1]]$data %>%
+    add_fitted_draws(mod.ls[[1]], dpar=T) %>%
     left_join(., 
               wkr.df %>% group_by(TubeNo) %>% 
     summarise(el_m=mean(el_m), 
@@ -378,26 +428,86 @@ for(k in 1:length(response_vars)) {
 
 
 
-# Elevation {.tabset .tabset-fade}
+# Elevation  
 First, we can establish whether there are any detectable changes across elevations in each trait, either in the mean or the standard deviation within each colony. 
 
-## Color
-![b_el_v](../eda/el/b_eff_v_std_3.png)
+```{r el_b_eff}
+library(tidyverse); library(tidybayes)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
 
-## Weber's Length
-![b_el_WL](../eda/el/b_eff_WebersLength_std_3.png)
+b_el.df <- dir("eda/el", "csv", full.names=T) %>% map_dfr(read_csv)
 
-## Head Width
-![b_el_HW](../eda/el/b_eff_HeadWidth_std_3.png)
+focus_traits <- c("Scape Proportion",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
 
-## Relative Leg Length
-![b_el_RL](../eda/el/b_eff_RelLegHind_std_3.png)
+filter(b_el.df, covariate != "Intercept") %>% 
+  mutate(covariate=cov_names$full[match(covariate, cov_names$orig)],
+         dpar=if_else(dpar=="mu", "mean_colony", "sd_colony"),
+         Trait=trait_match$full[match(Yvar, trait_match$orig)],
+         Trait=factor(Trait, levels=focus_traits),
+         TraitType=trait_match$relative[match(Yvar, trait_match$orig)]) %>%
+  ggplot(aes(x=.value, xmin=.lower, xmax=.upper, y=Trait, colour=TraitType)) + 
+  geom_vline(xintercept=0, colour="grey") +
+  geom_pointinterval(position=position_dodge(width=0.5), fatten_point=0.8) +
+  scale_colour_brewer(type="qual", palette=2, labels=c("Absolute", "Relative")) +
+  facet_grid(dpar~covariate) + 
+  labs(x="Posterior distribution", y="", title="Elevation")
+ggsave("eda/el/ALL_b_eff.png", width=7, height=5)
+```
 
-## Relative Interocular Distance
-![b_el_IO](../eda/el/b_eff_RelIntOc_std_3.png)
 
-## Pronotal Expansion
-![b_el_PE](../eda/el/b_eff_PronotExp_std_3.png)
+
+----------
+
+
+
+
+
+# Specific hypotheses  
+
+```{r hyp_b_eff}
+library(tidyverse); library(tidybayes)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+
+b_hyp.df <- dir("eda/hyp", "csv", full.names=T) %>% map_dfr(read_csv)
+
+focus_traits <- c("Scape Proportion",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
+
+filter(b_hyp.df, covariate != "Intercept") %>% 
+  mutate(covariate=cov_names$full[match(covariate, cov_names$orig)],
+         dpar=if_else(dpar=="mu", "mean_colony", "sd_colony"),
+         Trait=trait_match$full[match(Yvar, trait_match$orig)],
+         Trait=factor(Trait, levels=focus_traits),
+         TraitType=trait_match$relative[match(Yvar, trait_match$orig)]) %>%
+  ggplot(aes(x=.value, xmin=.lower, xmax=.upper, y=Trait, colour=TraitType)) + 
+  geom_vline(xintercept=0, colour="grey") +
+  geom_pointinterval(position=position_dodge(width=0.5), fatten_point=0.8) +
+  scale_colour_brewer(type="qual", palette=2, labels=c("Absolute", "Relative")) +
+  facet_grid(dpar~covariate) + 
+  theme(legend.position="bottom") +
+  labs(x="Posterior distribution", y="", title="Theoretical or empirical justification")
+ggsave("eda/hyp/ALL_b_eff.png", width=8, height=4.5)
+```
+
 
 
 
@@ -408,25 +518,40 @@ First, we can establish whether there are any detectable changes across elevatio
 
 
 
-# Specific hypotheses {.tabset .tabset-fade}
+# Climatic variables 
 
-## Color
-![b_hyp_v](../eda/hyp/b_eff_v_std_3.png)
+```{r clim_b_eff}
+library(tidyverse); library(tidybayes)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
 
-## Weber's Length
-![b_hyp_WL](../eda/hyp/b_eff_WebersLength_std_3.png)
+b_clim.df <- dir("eda/climate", "csv", full.names=T) %>% map_dfr(read_csv)
 
-## Head Width
-![b_hyp_HW](../eda/hyp/b_eff_HeadWidth_std_3.png)
+focus_traits <- c("Scape Proportion",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
 
-## Relative Leg Length
-![b_hyp_RL](../eda/hyp/b_eff_RelLegHind_std_3.png)
-
-## Relative Interocular Distance
-![b_hyp_IO](../eda/hyp/b_eff_RelIntOc_std_3.png)
-
-## Pronotal Expansion
-![b_hyp_PE](../eda/hyp/b_eff_PronotExp_std_3.png)
+filter(b_clim.df, covariate != "Intercept") %>% 
+  mutate(covariate=cov_names$full[match(covariate, cov_names$orig)],
+         dpar=if_else(dpar=="mu", "mean_colony", "sd_colony"),
+         Trait=trait_match$full[match(Yvar, trait_match$orig)],
+         Trait=factor(Trait, levels=focus_traits),
+         TraitType=trait_match$relative[match(Yvar, trait_match$orig)]) %>%
+  ggplot(aes(x=.value, xmin=.lower, xmax=.upper, y=Trait, colour=TraitType)) + 
+  geom_vline(xintercept=0, colour="grey") +
+  geom_pointinterval(position=position_dodge(width=0.5), fatten_point=0.8) +
+  scale_colour_brewer(type="qual", palette=2, labels=c("Absolute", "Relative")) +
+  facet_grid(dpar~covariate) + 
+  labs(x="Posterior distribution", y="", title="Climatic variables")
+ggsave("eda/climate/ALL_b_eff.png", width=9, height=5)
+```
 
 
 
@@ -438,24 +563,37 @@ First, we can establish whether there are any detectable changes across elevatio
 
 
 
-# Climatic variables {.tabset .tabset-fade}
+# All variables 
 
-## Color
-![b_clim_v](../eda/climate/b_eff_v_std_3.png)
+```{r clim_b_eff}
+library(tidyverse); library(tidybayes)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
 
-## Weber's Length
-![b_clim_WL](../eda/climate/b_eff_WebersLength_std_3.png)
+b_all.df <- dir("eda/all", "csv", full.names=T) %>% map_dfr(read_csv)
 
-## Head Width
-![b_clim_HW](../eda/climate/b_eff_HeadWidth_std_3.png)
+focus_traits <- c("Scape Proportion",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
 
-## Relative Leg Length
-![b_clim_RL](../eda/climate/b_eff_RelLegHind_std_3.png)
-
-## Relative Interocular Distance
-![b_clim_IO](../eda/climate/b_eff_RelIntOc_std_3.png)
-
-## Pronotal Expansion
-![b_clim_PE](../eda/climate/b_eff_PronotExp_std_3.png)
-
-
+filter(b_all.df, covariate != "Intercept") %>% 
+  mutate(covariate=cov_names$full[match(covariate, cov_names$orig)],
+         dpar=if_else(dpar=="mu", "mean_colony", "sd_colony"),
+         Trait=trait_match$full[match(Yvar, trait_match$orig)],
+         Trait=factor(Trait, levels=focus_traits),
+         TraitType=trait_match$relative[match(Yvar, trait_match$orig)]) %>%
+  ggplot(aes(x=.value, xmin=.lower, xmax=.upper, y=Trait, colour=TraitType)) + 
+  geom_vline(xintercept=0, colour="grey") +
+  geom_pointinterval(position=position_dodge(width=0.5), fatten_point=0.8) +
+  scale_colour_brewer(type="qual", palette=2, labels=c("Absolute", "Relative")) +
+  facet_grid(dpar~covariate) + 
+  labs(x="Posterior distribution", y="", title="All variables")
+ggsave("eda/all/ALL_b_eff.png", width=10, height=5)
+```
