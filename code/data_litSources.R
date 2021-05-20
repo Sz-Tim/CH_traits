@@ -62,12 +62,18 @@ seifert <- readxl::read_xlsx("data/lit/seifert2018/seifert.xlsx", 1) %>%
 
 
 ## Ant Profiler
-profiler <- read_tsv("~/Desktop/ANTPROFILER.txt") %>%
+profiler <- read_tsv("data/lit/ANTPROFILER.txt") %>%
   mutate(Binomial=str_replace(Species, "_", " "))
 prof_ch <- tax_i$Binomial %in% unique(profiler$Binomial)
 sum(prof_ch)  # 28
 ch_sp$prof <- as.numeric(prof_ch)
 
+
+
+
+profiler %>% filter(Binomial %in% tax_i$Binomial) %>%
+  filter(!is.na(WorkerPolymorphism)) %>% arrange(Binomial) %>%
+  select(Binomial, WorkerPolymorphism) %>% print.AsIs
 
 
 
