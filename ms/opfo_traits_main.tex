@@ -1,0 +1,244 @@
+\documentclass[review,preprint,3p]{elsarticle}
+
+\usepackage{lineno,hyperref,multirow,amsmath,amssymb,array}
+\modulolinenumbers[5]
+
+\journal{Journal of \LaTeX\ Templates}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Elsevier bibliography styles
+%%%%%%%%%%%%%%%%%%%%%%%
+%% To change the style, put a % in front of the second line of the current style and
+%% remove the % from the second line of the style you would like to use.
+%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Numbered
+%\bibliographystyle{model1-num-names}
+
+%% Numbered without titles
+%\bibliographystyle{model1a-num-names}
+
+%% Harvard
+%\bibliographystyle{model2-names.bst}\biboptions{authoryear}
+
+%% Vancouver numbered
+%\usepackage{numcompress}\bibliographystyle{model3-num-names}
+
+%% Vancouver name/year
+%\usepackage{numcompress}\bibliographystyle{model4-names}\biboptions{authoryear}
+
+%% APA style
+%\bibliographystyle{model5-names}\biboptions{authoryear}
+
+%% AMA style
+%\usepackage{numcompress}\bibliographystyle{model6-num-names}
+
+%% `Elsevier LaTeX' style
+\bibliographystyle{elsarticle-num}
+%%%%%%%%%%%%%%%%%%%%%%%
+
+\journal{Functional Ecology}
+
+\begin{document}
+	
+	\begin{frontmatter}
+		
+		\title{Intra- and inter-specific variation in Swiss ants}
+		
+		%% Group authors per affiliation:
+		\author[DEE]{Tim M. Szewczyk}
+		\author[DEE]{Cleo Bertelsmeier}
+		\author[DEE]{Tanja Schwander}
+
+		\address[DEE]{Department of Ecology and Evolution, University of Lausanne}
+
+		
+		\begin{abstract}
+			This is the abstract for the paper about ant traits.
+		\end{abstract}
+		
+		\begin{keyword}
+			Formicidae, colony, morphology, elevation, color, body size
+		\end{keyword}
+		
+	\end{frontmatter}
+	
+	\linenumbers
+	
+	\section{Introduction}
+	The variation of traits within populations is central to many evolutionary and ecological processes, from species coexistence \cite{Violle2012a} to biogeographical patterns \cite{Classen2017} to responses to anthropogenic change \cite{Moran2016,Merckx2018}. Intraspecific variation in morphology can be considerable. In plants, for example, approximately 25\% of the trait variation in a typical community is attributable to intraspecific variation \cite{Siefert2015}. Incorporating variability among individuals has advanced our understanding of the assembly, structure, and dynamics of communities \cite{Jung2010,Laughlin2012}. Nevertheless, intraspecific variation has often been neglected in ecology, and basic patterns for most taxa remain largely unknown \cite{Bolnick2011,Violle2012a,Wong2019}.
+	
+	Realized morphological traits result from the interplay of environmental and genetic factors. In eusocial insects like ants, a trait such as body size is the product of intrinsic factors of the colony (e.g., genetics and the social environment), extrinsic factors outside the colony (e.g., available nutrition and the physical environment), and their interaction during larval development \cite{Wills2018}. Nevertheless, environmental conditions are expected to be a major driver of the geographical patterns of traits \cite{McGill2006}, and many biogeographical rules have been proposed regarding these patterns, often based on physical and chemical properties (CITE). For instance, Bergamnn's rule asserts an increase in body size in colder environments, and Allen's rule a decrease in limb length in colder environments, each based on the reduced heat loss of a smaller surface area to volume ratio (CITE). Similarly, Gloger's rule predicts that coloration should be darker in humid environments to counteract the heat capacity of atmospheric moisture (CITE). While many biogeographical rules were originally proposed in particular taxonomic or environmental contexts (CITE), many have since been applied within and among species for a variety of species' life styles (CITE). 
+	
+	Traits in insect communities have also been shown to vary along natural and anthropogenic gradients \cite{Reymond2013}, sometimes in unexpected ways. For instance, inter- and intraspecific variation in the body size of bees showed opposing patterns on Mount Kilimanjaro, with smaller-bodied species at high elevations, but larger body sizes within species \cite{Classen2017}, revealing conflicting pressures of physiological and energetic constraints. In changing environments, the degree of variation within a population may also affect species’ resilience \cite{Kuhsel2015}, though empirical evidence is equivocal \cite{Macheriotou2015}. Additional anthropogenic impacts like land use change can affect intraspecific variation of particular traits, such as selecting for larger body sizes in moths \cite{Merckx2018}, further complicating potential future responses to climate change. 
+	
+	Recent work in ants has shown that morphology indeed varies among communities across environmental gradients. Using species-level average trait values, ant communities tend to become darker in colder environments \cite{Kaspari2005,Bishop2016a}, particularly when UV-B is high. Darker species also tend to be larger \cite{Bishop2016a}. Further, communities in cold environments do not show a uniform shift of the size distribution, but rather a truncation where the smallest species are not present \cite{Reymond2013,Gibb2018}. Similarly, wet environments tend to filter out larger species \cite{Gibb2018}. Further, the type of trait affects the variability. Relative traits, which are scaled by a measure of body size, are less variable across ecomorphs (section 3.1) \cite{Sosiak2021}, and may similarly be expected to be less variable within colonies. 
+	
+	Some work has also explored variation within ant species across elevational gradients. Nevertheless, this work has shown an increase in body size with elevation in one species \cite{Bernadou2016}. In contrast, a broader study of 23 ant species in South Africa found that intraspecific variation was rather small relative to total variation across all species, and found no convincing relationships in intraspecific variation across elevations \cite{Gaudard2019}. It is therefore unclear to what extent the patterns of morphology observed among species are also seen within individual species. 
+	
+	Eusocial taxa like ants, however, are in many ways unique due to their colonial life style. In contrast to non-eusocial species, the success of a colony depends on the collective success of the individuals, and thus the distribution of traits within the colony, rather than on any single individual (CITE). Morphological variation within ant colonies can have many implications, including impacts on the thermal foraging window of the colony. In both desert-dwelling *Cataglyphis* and alpine-dwelling *Formica neorufibarbis*, larger workers forage during the middle of the day when temperatures are higher because they heat up more slowly \cite{Cerda1997a,Bernstein1979}. In contrast to patterns in ant communities, the smaller *F. neorufibarbis* workers in are darker, maximizing their ability to warm up quickly in the cold mornings \cite{Bernstein1979}. Worker-level traits like body size varies among individuals within each colony, with potentially different distributions among colonies within a population and among populations along a gradient \cite{Frenette-Dussault2013,Wills2014,Chevalier2015}. Accounting for trait variability among and within ant colonies provides a deeper, more accurate view of the ecological processes shaping communities and biodiversity.
+	
+	So in this paper, here are the possible topics to include:  
+	
+	- Basic description with pretty figures showing the distribution of traits among different species  
+	- Variance partitioning across biological levels  
+	- Correlations, PCA of traits within workers  
+	- Hierarchical heteroskedastic regression model assessing drivers  
+	- When can we ignore variation among colonies? Are there traits where colony identity (and as a corrollary, environment) does not matter? Are there traits where it is particularly important (i.e., colonies are quite distinct)?  
+	- When can we ignore variation within species? Are there traits or questions where species-level averages are likely to be reasonable approximations of reality? Conversely, are there traits where species-level averages are likely to be *poor* approximations of reality?  
+	- Direct test of biogeographic rules (intraspecific or intragenic formulations)  
+	- The multispecies formulations use species-level averages...  
+	- Within species, decide on covariates based on proposed rule (but they're kind of all temp + precip + NPP mostly...)
+	
+	
+	
+	\section{Methods}
+	\subsection{Data}
+	\subsubsection{Study Area}
+	This study focuses on ant species in the canton of Vaud in western Switzerland (46.2–47.0$^{\circ}$N, 6.1–7.2$^{\circ}$E), a topographically heterogeneous region (372–3201m) that includes the Jura mountains in the west, the Alps in the east, and the Swiss plateau centrally. Much of the central plateau is dominated by anthropogenic land use, including cropland, vineyards, pastures, and urban areas, with areas of predominantly deciduous forest. The mountainous regions span the forested montane and subalpine zones through the alpine zone, with widespread cattle grazing \cite{Delarze2015,Gago-Silva2017,Beck2017}. 
+	
+	\subsubsection{Sampling}
+	Ants were collected during the summer of 2019 in two simultaneous collection efforts. First, a citizen science project (Opération Fourmis: https://wp.unil.ch/fourmisvaud/) was organized to survey the ant fauna within the canton of Vaud. Vials of ethanol were distributed to interested citizen scientists, who were asked to collect approximately 10 ant workers per colony for each vial. Participants were encouraged to explore under rocks, on bark, inside twigs, and in downed wood, and an online map was updated periodically to highlight data-sparse areas. Collectors returned the vials along with the collection date and the locality of the sample including the latitude and longitude. For these presence-only data, we discretized the landscape into a 1 km$^2$ grid (3,558 km$^2$) and tallied the number of occurrences for each species in each cell. 
+	
+	Second, a structured sampling effort collected local colony abundance data, where ants were collected within 44 sites of 1 km$^2$ each, with standardized effort across sites. Thirty-nine of the sites were a part of long-term biodiversity monitoring efforts by the federal government (CITE), and as such were arranged on a regular grid with approximately 5-7 km between adjacent sites. Five additional sites are established monitoring sites by the University of Lausanne. The ants at each site were characterized by 25 plots, distributed among 15 habitat types \cite{Gago-Silva2017} in approximate proportion to the abundance of each habitat, where each habitat type present within the site was represented by at least one plot. Inaccessible areas (e.g., cliffs, water, property beyond Vaud) were excluded, resulting in several sites with areas less than 1 km$^2$, and the number of plots was reduced proportionally (1059 total plots). 
+	
+	Each sampling plot consisted of a 2m radius circle. Six flags were evenly spaced around the circumference. Within $\sim$ 25 cm of each flag (total surface area $\sim$ 1.2 m$^2$), we searched for ant colonies within any downed wood or stumps, under large rocks, and in 2 L of soil, litter, and small rocks using 18 cm Hori Hori gardening knives. We haphazardly collected 10 workers from each colony, placing them directly into vials of ethanol. Within each plot, all trees $\geq$3 cm diameter at breast height were also inspected for ant workers which were collected regardless of whether or not a colony was identifiable. Lastly, transect lines were mapped \textit{a priori}, distributed proportionally among habitat types and totalling 2 km, and surveyed at a moderate pace. Workers were collected from all permanent above-ground mounds within 2 m of the transect line. 
+	
+	We restricted trait analyses to TK non-polymorphic species with an emphasis on Myrmicine genera. For each species, colonies were subsampled to represent the detected elevational range: the observed colonies were categorized into 100m elevational bins (e.g., 300-400m, 400-500m, etc), and 20 colonies were selected when possible, such that each bin with a detection was represented and the number of colonies per bin was as even as possible. Preference was given to colonies collected via the structured sampling design to reduce the effects of any potential trait-based bias in the collection of workers by citizen scientists. Colonies were originally subsampled following the morphological identification of species. The genus \textit{Tetramorium} was subsequently identified using mitochondrial DNA, resulting in revised species assignments for XX colonies. All colonies were included in the analysis, and so one species (\textit{T. impurum}) was represented by 37 colonies. For each subsampled colony, 4 workers were haphazardly selected when possible for quantification of morphological traits.
+	
+	
+	\subsubsection{Traits}
+	These are the traits we used, and this is how they're defined (Table \ref{table:trait_description}). This is the equipment we used to measure them. 
+	
+	\subsubsection{Environmental variables}
+	We used environmental variables from envirem and CHELSA. Here's a description. This is how we categorized canopy. Maybe a justification for why, but that might depend on the framing.
+	
+	\begin{table}[t]
+		\small
+		\centering
+		\begin{tabular}{m{0.2\textwidth} | >{\raggedright}m{0.25\textwidth} | m{0.23\textwidth} | >{\raggedright}m{0.12\textwidth} | m{0.07\textwidth}}
+			\hline
+			\centering Trait & \centering Description & \centering Relevance & Expectation & Sources \\ 
+			\hline
+			Weber's Length (WL) & Pronotum anterior to propodeum posterior & 
+				Overall body size, linked to resource use & 
+				$\begin{aligned} \mu: +T - P \\  \sigma: -T -P \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Head Length (HL) & Top of head to margin of clypeus along center line & 
+				Overall body size, linked to predatory strategy &
+				$\begin{aligned} \mu: +T - P \\  \sigma: -T -P \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Head Width (HW) & Maximum width above eyes & 
+				Overall body size, linked to predatory strategy &
+				$\begin{aligned} \mu: +T - P \\  \sigma: -T - P \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Color (brightness) (V) & Median V in HSV color of mesosoma dorsum & 
+				Thermal regulation, protection from UV-B &
+				$\begin{aligned} \mu: +T - P \\  \sigma: -T - P \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Head Shape (HS) & $\displaystyle \frac{HW}{HL}$ & 
+				Presumably foraging &
+				$\begin{aligned} \mu: ? \\  \sigma: ? \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Hind Leg Length (LL) & $\displaystyle \frac{Femur + Tibia}{WL}$ & 
+				Walking speed, access to foraging spaces &
+				$\begin{aligned} \mu: -T \\  \sigma: +NPP \end{aligned}$ & 
+				{\tiny sources} \\
+			\hline
+			Scape Proportion (SP) & $\displaystyle \frac{Scape Length}{HL}$ & 
+				Presumably foraging &
+				$\begin{aligned} \mu: -T \\  \sigma: ? \end{aligned}$ & 
+				{\tiny sources} \\
+\end{tabular}
+\caption{Ant traits included in the analyses, including the description and biological relevance of each trait, as well as the expected pattern for the colony-level mean ($\mu$) and standard deviation ($\sigma$) across environmental gradients. Environmental variables include temperature (T), precipitation (P), and net primary productivity (NPP).} 
+\label{table:trait_description}
+\end{table}
+
+	
+	\subsection{Analyses}
+	
+	\subsubsection{Variance partitioning}
+	To evaluate the distribution of the variance in each trait among biological levels, we performed a variance partitioning analysis using the measured trait values and biological levels including genus, species, among colonies, and within colonies. We further performed the partitioning separately within each genus, and within each species. In all cases, we analyzed each trait separately. We used the R package \emph{VCA X.x.x}. 
+		
+	To compare the within- vs. among-colony variance among traits, we used a generalized linear mixed model, with the coefficient of variation (calculated as described above) predicted by the trait and biological level with a species-level random intercept. Alternatively (or additionally), we classified traits as absolute or relative, where relative traits are those scaled by a measure of body size, and performed similar GLMMs but with trait type instead of trait as a fixed effect. We used the R package \emph{brms X.x.x} or \emph{lme4 X.x.x}.
+	
+	\subsubsection{Distributional Model}
+	To assess the change in ant worker traits across the environmental gradient, we used a hierarchical Bayesian distributional model that simultaneously estimates the mean and standard deviation of worker traits within each colony. In brief, we assume worker traits are distributed normally within each colony, and that the mean and standard deviation of each colony may be dependent on the environment. We focus on non-polymorphic species where such an assumption is broadly reasonable. Species is treated as a random effect for both intercept and slope, such that each species can respond differently to the environment, but with the estimation of global effects and the ability for hierarchical pooling across taxa. Modelling was performed using the R package \emph{brms} (v. XX), which implements Bayesian models in Stan (v. XX) .
+	
+	The trait value for each worker $i$ is distributed normally within each colony $j$ for each species $s$ such that:
+	
+	\begin{equation}
+		y_{i,j,s} \sim Norm(\bar{y}_{j,s}, d_{j,s})
+	\end{equation}
+	
+	where $\bar{y}_{j,s}$ is the intra-colony mean, and $d_{j,s}$ is the intra-colony standard deviation. Each intra-colony mean is therefore distributed about predicted value $\mu_{j,s}$ based on the environmental conditions such that:
+	
+	\begin{equation}
+		\bar{y}_{j,s} \sim Normal(\mu_{j,s}, \sigma_{1})
+	\end{equation}
+	
+	\begin{equation}
+		\mu_{j,s} = X_j b_s
+	\end{equation}
+	
+	where $\sigma_{1}$ is the standard deviation, $X$ is a matrix of environmental covariates, and $b$ is a vector of species specific slopes.  
+	
+	Similarly, the within-colony variation is expected to be a function of the environment. Thus, the standard deviation within each colony $d_{j,s}$ is:
+	
+	\begin{equation}
+		log(d_{j,s}) \sim Normal(\delta_{j,s}, \sigma_{2})
+	\end{equation}
+	
+	\begin{equation}
+		\delta_{j,s} = V_j a_s
+	\end{equation}
+	
+	where $\sigma_{2}$ is the standard deviation, $V$ is a matrix of environmental covariates, and $a_s$ is a vector of species specific slopes. 
+	
+	Thus, we assume that the both the intra-colony means and standard deviations may vary with environmental conditions. The hierarchical priors on $b$ and $a$ allow for taxonomic clustering among genera:
+	
+	\begin{equation}
+		b_{p,s} \sim Norm(B_{p,g}, \sigma_{b_p})
+	\end{equation}
+	\begin{equation}
+		B_{g} \sim mvNorm(\beta, \Sigma_B)
+	\end{equation}
+	
+	\begin{equation}
+		a_{p,s} \sim Norm(A_{p,g}, \sigma_{a_p})
+	\end{equation}
+	\begin{equation}
+		A_{g} \sim mvNorm(\alpha, \Sigma_A)
+	\end{equation}
+	
+	where $B_{g}$ and $A_{g}$ are genus-level averages with standard deviations $\sigma_{b_p}$ and $\sigma_{A_p}$ for each variable $p$, and $\beta$ and $\alpha$ are overall average responses among all species with covariance matrices $\Sigma_B$ and $\Sigma_A$. 
+	
+	\subsubsection{Principal Components Analysis}
+	Maybe include this, or maybe don't.
+	
+	
+	
+	
+	\section{Results}
+	
+	% Variance partitioning: Among biological levels
+	Here are my results
+	
+	%  Variance partitioning: Among traits & trait types
+	
+	% Distributional model
+	
+	% PCA?
+	
+	
+	
+	\section*{References}
+	
+	\bibliography{opfo_traits.bib}
+	
+\end{document}
