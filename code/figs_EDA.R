@@ -90,12 +90,14 @@ wkr.df_3 <- filter(trts$wkr.wide, n_clny > 2) %>% select(-`NA`) %>%
          GENUSID=str_sub(SPECIESID, 1, 4),
          Trait_orig=Trait,
          Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
-  filter(!is.na(Value))
+  filter(!is.na(Value)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 clny.df_3 <- wkr.df_3 %>% group_by(TubeNo, SPECIESID, Trait) %>%
   summarise(mnValue=mean(Value, na.rm=T),
             sdValue=sd(Value, na.rm=T),
             mnValue_std=mean(Value_std, na.rm=T),
-            sdValue_std=sd(Value_std, na.rm=T))
+            sdValue_std=sd(Value_std, na.rm=T)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 
 varPart_cols <- c("Within colonies"="#a6611a", 
                   "Among colonies"="#dfc27d",
