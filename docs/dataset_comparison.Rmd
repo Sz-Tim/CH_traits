@@ -1,0 +1,241 @@
+---
+title: "Intra- and interspecific variation in Swiss ants"
+subtitle: "Dataset comparison"
+author: "Tim Szewczyk"
+output:
+  html_document:
+    theme: spacelab
+    df_print: paged
+    anchor_sections: TRUE
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: spacelab
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Overview  
+This notebook briefly explores whether there are any detectable differences between the colonies from the public inventory and those from the structured sampling. It is by no means clear that I actually have the data to do this, particularly given the changes along the elevational gradient in some traits. Nevertheless, there was agreement at lab meeting that it should be investigated.
+
+```{r setup, echo=F}
+# set directory for knitr as main project directory
+knitr::opts_knit$set(root.dir=rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_workspace, include=FALSE, message=FALSE, warning=FALSE}
+# libraries, functions, directories
+library(tidyverse); library(sf)
+theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
+                             panel.grid.major=element_line(colour="gray90",
+                                                           size=0.25)))
+googlesheets4::gs4_auth(email="tim.szewczyk@gmail.com")
+
+source("code/00_fn.R")
+walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
+
+pinned_ants <- googlesheets4::read_sheet(ss=googledrive::as_id("https://docs.google.com/spreadsheets/d/1VoOXaEOqV5srYhB-9f87sjKkfuk4vhyzQgrtl4RcbgE/edit?usp=sharing"),
+                                         col_types="iccciiilllc") %>%
+  rename(img_order="id")
+
+gis_dir <- "../2_gis/data/VD_21781/"
+rast_end <- "_VD_21781.tif"
+msr_dir <- "data/img/"
+col_dir <- "data/img/"
+min_clny_size <- 2
+
+trait_match <- data.frame(orig=c("v", "grey_md",
+                                 "HeadLength", "HeadWidth", 
+                                 "RelIntOc",
+                                 "ScapeLength", "WebersLength",
+                                 "HindTibia", "MidTibia", "MesosomaWidth",
+                                 "MesosomaLength", "HindFemur", "MidFemur",
+                                 "MidLen", "HindLen", "MesoSA", 
+                                 "HeadShape", "PronotExp", "ScapeProp"),
+                          full=c("Color (lightness)", "Color (med. grey)",
+                                 "Head Length", "Head Width",
+                                 "Interocular Distance",
+                                 "Scape Length", "Webers Length",
+                                 "Hind Tibia", "Mid Tibia", "Pronotum Width",
+                                 "Mesosoma Length", "Hind Femur", "Mid Femur",
+                                 "Leg Length (mid)", 
+                                 "Leg Length (hind)", 
+                                 "Mesosoma SA", "Head Shape",
+                                 "Pronotal Expansion", "Scape Proportion"),
+                          relative=c(F, F,
+                                     F, F,
+                                     T, 
+                                     F, F, 
+                                     F, F, F, 
+                                     F, F, F,
+                                     T, T, F, 
+                                     T, T, T))
+focus_traits <- c("Scape Proportion",
+                  "Interocular Distance", 
+                  "Leg Length (hind)",
+                  "Pronotal Expansion",
+                  "Head Shape",
+                  "Head Width", 
+                  "Head Length",
+                  "Webers Length", 
+                  "Color (lightness)")
+
+trts <- readRDS("data/trts.rds")
+
+wkr_all.df <- trts$wkr.wide %>% 
+  select(-`NA`) %>%
+  mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
+         RelIntOc=InterocularDistance/HeadWidth,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength) %>%
+  select(one_of("Worker", "TubeNo", "SPECIESID", trait_match$orig), 
+         "source", "mnt25", "GDD5", "PwarmQ", "npp", "SampleDate") %>%
+  pivot_longer(cols=3+(seq_along(trait_match$full)), 
+               names_to="Trait", values_to="Value") %>%
+  group_by(Trait, SPECIESID) %>% 
+  mutate(Value_std=scale(Value)[,1]) %>%
+  ungroup %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         img_order=pinned_ants$img_order[match(TubeNo, pinned_ants$TubeNo)],
+         Trait_orig=Trait,
+         Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
+  filter(!is.na(Value))
+
+wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
+  select(-`NA`) %>%
+  mutate(MidLen=MidLen/WebersLength, HindLen=HindLen/WebersLength,
+         RelIntOc=InterocularDistance/HeadWidth,
+         HeadShape=HeadWidth/HeadLength,
+         PronotExp=MesosomaWidth/WebersLength,
+         ScapeProp=ScapeLength/HeadLength) %>%
+  select(one_of("Worker", "TubeNo", "SPECIESID", trait_match$orig), 
+         "source", "mnt25", "GDD5", "PwarmQ", "npp", "SampleDate") %>%
+  pivot_longer(cols=3+(seq_along(trait_match$full)), 
+               names_to="Trait", values_to="Value") %>%
+  group_by(Trait, SPECIESID) %>% 
+  mutate(Value_std=scale(Value)[,1]) %>%
+  ungroup %>%
+  mutate(GENUSID=str_sub(SPECIESID, 1, 4),
+         img_order=pinned_ants$img_order[match(TubeNo, pinned_ants$TubeNo)],
+         Trait_orig=Trait,
+         Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
+  filter(!is.na(Value)) 
+
+clny_all.df <- wkr_all.df %>% group_by(TubeNo, SPECIESID, Trait, Trait_orig) %>%
+  summarise(mnValue=mean(Value, na.rm=T),
+            sdValue=sd(Value, na.rm=T),
+            mnValue_std=mean(Value_std, na.rm=T),
+            sdValue_std=sd(Value_std, na.rm=T)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"),
+         img_order=pinned_ants$img_order[match(TubeNo, pinned_ants$TubeNo)])
+clny.df <- wkr.df %>% group_by(TubeNo, SPECIESID, Trait, Trait_orig) %>%
+  summarise(mnValue=mean(Value, na.rm=T),
+            sdValue=sd(Value, na.rm=T),
+            mnValue_std=mean(Value_std, na.rm=T),
+            sdValue_std=sd(Value_std, na.rm=T)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"),
+         img_order=pinned_ants$img_order[match(TubeNo, pinned_ants$TubeNo)])
+```
+
+
+
+# By imaging order
+
+```{r wkr_by_imgOrder}
+wkr.df %>% filter(Trait %in% focus_traits) %>%
+  ggplot(aes(x=img_order, y=Value_std)) + 
+  geom_point(shape=1, aes(colour=source)) + 
+  stat_smooth(method="loess", colour="black", size=0.5) +
+  stat_smooth(method="loess", size=0.5, aes(colour=source)) +
+  facet_wrap(~Trait) + scale_colour_brewer(type="qual", palette=2)
+```
+
+```{r clny_by_imgOrder}
+clny.df %>% filter(Trait %in% focus_traits) %>%
+  ggplot(aes(x=img_order, y=mnValue_std)) + 
+  geom_point(shape=1, aes(colour=source)) + 
+  stat_smooth(method="loess", colour="black", size=0.5) +
+  stat_smooth(method="loess", size=0.5, aes(colour=source)) +
+  facet_wrap(~Trait) + scale_colour_brewer(type="qual", palette=2)
+```
+
+
+
+# Boxplots
+
+```{r wkr_boxplots}
+wkr.df %>% filter(Trait %in% focus_traits) %>%
+  ggplot(aes(x=Value_std, y=Trait, fill=source)) + 
+  geom_boxplot()
+clny.df %>% filter(Trait %in% focus_traits) %>%
+  ggplot(aes(x=mnValue_std, y=Trait, fill=source)) + 
+  geom_boxplot()
+clny.df %>% filter(Trait %in% focus_traits) %>%
+  ggplot(aes(x=log(sdValue_std), y=Trait, fill=source)) + 
+  geom_boxplot()
+```
+
+
+
+
+
+
+# Across elevation
+
+## Colour  
+
+Let's look at colour first:
+```{r v_dataset}
+ggplot(filter(wkr.df, Trait_orig=="v"), aes(mnt25, Value, colour=source)) +
+  geom_point(shape=1) + stat_smooth(method="lm", se=F) + 
+  facet_wrap(~SPECIESID, scales="free_y")
+
+wkr.df %>% filter(Trait_orig == "v") %>%
+  ggplot(aes(x=img_order, y=Value_std)) + 
+  geom_point(shape=1, aes(colour=source)) + 
+  stat_smooth(method="lm", colour="black", size=0.5) +
+  stat_smooth(method="lm", size=0.5, aes(colour=source)) +
+  facet_wrap(~SPECIESID, scales="free_x") + 
+  scale_colour_brewer(type="qual", palette=2)
+```
+There does seem to be a difference between public and scientific samples for color, at least on average across most species when we had samples for both. It seems that the public samples tend to be darker. It could be that there was a tendency for them to collect darker individuals, given a set of workers, or it could be that since I was pulling workers from underground, it included more light-colored individuals. If color darkens somewhat with age or exposure to sunlight, then it could be that collecting from the surface selects a darker subset of the total workers. If there is any methodological artefact, it is confounded with the imaging order. What I really need to do is get the grey value of the background across images. I could try to automate it somehow, or do it for a subset. I can't do it for 1706 images... Even with 30 seconds per image, that's 14 hours.
+
+The median grey value shows essentially the same thing:
+```{r grey_dataset}
+ggplot(filter(wkr.df, Trait_orig=="grey_md"), aes(mnt25, Value, colour=source)) +
+  geom_point(shape=1) + stat_smooth(method="lm", se=F) + 
+  facet_wrap(~SPECIESID, scales="free_y")
+```
+
+
+
+## Webers Length
+
+Now Webers Length:
+```{r WL_dataset}
+ggplot(filter(wkr.df, Trait_orig=="WebersLength"), 
+       aes(mnt25, Value, colour=source)) +
+  geom_point(shape=1) + stat_smooth(method="lm", se=F) + 
+  facet_wrap(~SPECIESID, scales="free_y")
+```
+Still some possible differences, but this time the public workers tend to be a little bit bigger. But it isn't quite as dramatic.
+
+
+## Leg Length
+
+Now Webers Length:
+```{r HindLeg_dataset}
+ggplot(filter(wkr.df, Trait_orig=="HindLen"), 
+       aes(mnt25, Value, colour=source)) +
+  geom_point(shape=1) + stat_smooth(method="lm", se=F) + 
+  facet_wrap(~SPECIESID, scales="free_y")
+```
+Structured samples often have longer legs... 
+
+
