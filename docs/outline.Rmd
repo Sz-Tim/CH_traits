@@ -245,6 +245,87 @@ tribble(
   column_spec(4, width_max="7em") %>%
   column_spec(5, extra_css="font-size: 10px") %>%
   column_spec(7, width_max="7em", italic=T, extra_css="font-size: 10px") 
+
+
+tribble(
+  ~Trait, ~Abbr., ~Description, ~Relevance, 
+  ~`Expected Env. Patterns`, ~Type, ~Sources,
+  "Weber's Length", "WL",
+    "Pronotum anterior to propodeum posterior", 
+    "Overall body size, linked to resource use",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Cerda & Retana 1997, Kaspari & Weiser 1999, Bishop et al 2016, Gibb et al 2018",
+  "Head Length", "HL",
+    "Top of head to margin of clypeus along center line", 
+    "Overall body size, linked to predatory strategy",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Cerda & Retana 1997, Kaspari & Weiser 1999, Silva & Brandão 2010, Bishop et al 2016, Gibb et al 2018",
+  "Head Width", "HW",
+    "Maximum width above eyes", 
+    "Overall body size, linked to predatory strategy",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP
+      \\end{align*}", 
+    "Absolute", "Kaspari 1993, Sarty et al 2006, Schofield et al 2016, Bernadou et al 2016",
+  "Color (brightness)", "V",
+    "Median V in HSV color of mesosoma dorsum", 
+    "Thermal regulation, protection from UV-B",
+    "\\begin{align*} 
+      \\mu: +Temp -AP \\\\ 
+      \\sigma: -Temp -AP 
+      \\end{align*}", 
+    "Absolute", "Bernstein 1976, Willmer & Unwin 1981, Cerda & Retana 1997, Bishop et al 2016",
+  "Head Shape", "HS",
+    "HW / HL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: ? \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Sosiak & Barden 2021",
+  "Leg Length", "LL",
+    "(Hind Femur + Tibia) / WL", 
+    "Walking speed, foraging spaces available",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: +NPP 
+      \\end{align*}", 
+    "Relative", "Sarty et al 2006, Silva & Brandão 2010, Gibb & Parr 2010, 2013",
+  "Scape Proportion", "SP",
+    "Scape Length / HL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Silva & Brandão 2010, Sosiak & Barden 2021",
+  "Pronotal Expansion", "PE",
+    "Pronotum Width / WL", 
+    "Foraging and stuff",
+    "\\begin{align*} 
+      \\mu: ? \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "Gibb & Parr 2013, Keller et al 2014, Sosiak & Barden 2021",
+  "Interocular distance", "IO",
+    "Interocular distance / HW", 
+    "Foraging strategy",
+    "\\begin{align*} 
+      \\mu: -Temp \\\\ 
+      \\sigma: ? 
+      \\end{align*}", 
+    "Relative", "FOR DVE: Weiser & Kaspari 2006, Narendra et al 2013, Sosiak & Barden 2021",
+) %>%
+  xtable::xtable(., type="latex", label="table:trait_description",
+                 caption="Ant traits included in the analyses.",
+                 align=c("c", "l", "c", "l", "l", "c", "c", "l"))
 ```
 
 
