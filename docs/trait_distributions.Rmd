@@ -100,7 +100,8 @@ wkr_all.df <- trts$wkr.wide %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait_orig=Trait,
          Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
-  filter(!is.na(Value))
+  filter(!is.na(Value)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 
 wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>% 
   select(-`NA`) %>%
@@ -118,18 +119,21 @@ wkr.df <- filter(trts$wkr.wide, n_clny >= min_clny_size) %>%
   mutate(GENUSID=str_sub(SPECIESID, 1, 4),
          Trait_orig=Trait,
          Trait=trait_match$full[match(Trait, trait_match$orig)]) %>%
-  filter(!is.na(Value))
+  filter(!is.na(Value)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 
 clny_all.df <- wkr_all.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
   summarise(mnValue=mean(Value, na.rm=T),
             sdValue=sd(Value, na.rm=T),
             mnValue_std=mean(Value_std, na.rm=T),
-            sdValue_std=sd(Value_std, na.rm=T))
+            sdValue_std=sd(Value_std, na.rm=T)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 clny.df <- wkr.df %>% group_by(TubeNo, SPECIESID, Trait) %>%
   summarise(mnValue=mean(Value, na.rm=T),
             sdValue=sd(Value, na.rm=T),
             mnValue_std=mean(Value_std, na.rm=T),
-            sdValue_std=sd(Value_std, na.rm=T))
+            sdValue_std=sd(Value_std, na.rm=T)) %>%
+  mutate(source=if_else(grepl("^999", TubeNo), "s", "p"))
 
 # plot details
 varPart_cols <- c("Within colonies"="#a6611a", 
