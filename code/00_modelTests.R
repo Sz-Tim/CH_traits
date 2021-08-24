@@ -7,6 +7,7 @@ options(mc.cores=parallel::detectCores()); rstan_options(auto_write=TRUE)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
                              panel.grid.major=element_line(colour="gray90",
                                                            size=0.25)))
+googlesheets4::gs4_auth(email="tim.szewczyk@gmail.com")
 
 source("code/00_fn.R")
 walk(paste0("../1_opfo/code/", c("lc_cols", "00_fn"), ".R"), source)
