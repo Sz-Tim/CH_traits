@@ -203,6 +203,14 @@ wkr.df %>% filter(Trait_orig == "v") %>%
   stat_smooth(method="lm", size=0.5, aes(colour=source)) +
   facet_wrap(~SPECIESID, scales="free_x") + 
   scale_colour_brewer(type="qual", palette=2)
+
+wkr.df %>% filter(Trait_orig == "v") %>%
+  ggplot(aes(x=TubeNo, y=Value_std)) + 
+  # geom_point(shape=1, aes(colour=source)) + 
+  geom_text(aes(label=Worker, colour=source)) + 
+  facet_wrap(~SPECIESID, scales="free_x") + 
+  scale_colour_brewer(type="qual", palette=2) +
+  theme(axis.text.x=element_text(angle=270, hjust=0, vjust=0.5))
 ```
 There does seem to be a difference between public and scientific samples for color, at least on average across most species when we had samples for both. It seems that the public samples tend to be darker. It could be that there was a tendency for them to collect darker individuals, given a set of workers, or it could be that since I was pulling workers from underground, it included more light-colored individuals. If color darkens somewhat with age or exposure to sunlight, then it could be that collecting from the surface selects a darker subset of the total workers. If there is any methodological artefact, it is confounded with the imaging order. What I really need to do is get the grey value of the background across images. I could try to automate it somehow, or do it for a subset. I can't do it for 1706 images... Even with 30 seconds per image, that's 14 hours.
 
@@ -238,4 +246,118 @@ ggplot(filter(wkr.df, Trait_orig=="HindLen"),
 ```
 Structured samples often have longer legs... 
 
+
+
+# Gray value comparisons
+
+I took the HSV value for the top left corner of all of the images to compare.
+```{r}
+wkr_grey <- dir("/Volumes/Tardis/img_imagej", full.names=T) %>%
+  map_dfr(., ~suppressMessages(read_csv(.x))) %>%
+  mutate(TubeNo=str_split_fixed(Label, "-", 2)[,1], 
+         Worker=str_sub(str_split_fixed(Label, "-", 2)[,2], 1, 1)) %>%
+  select(TubeNo, Worker, Mean, Mode) %>%
+  right_join(., wkr.df, by=c("TubeNo", "Worker"))
+
+# Manually draw the HSV grey box for these, since the auto included ant in it
+wkr_grey  %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+    mutate(GreyStd=median(Mode, na.rm=T),
+           GreyDiff=Mode-GreyStd,
+           ValueCorr=Value-GreyDiff/256) %>% 
+  filter(abs(GreyDiff) > 25) %>%
+  arrange(desc(GreyDiff)) %>% 
+  mutate(File=paste(TubeNo, Worker, sep="-")) %>% 
+  select(File) %>% 
+  write_csv("~/Desktop/manual_grey_box.csv", col_names=F)
+manual <- read_csv("~/Desktop/manual_grey_box.csv", col_names="img")
+```
+
+```{r}
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  filter(!img %in% manual$img) %>%
+  ggplot(aes(x=img_order, y=Value)) + 
+  geom_point(shape=1, aes(colour=source)) + 
+  stat_smooth(method="lm", colour="black", size=0.5) +
+  stat_smooth(method="lm", size=0.5, aes(colour=source)) +
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2)
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  ggplot(aes(x=TubeNo, y=Me/256)) + 
+  geom_text(aes(label=Worker, colour=source)) + 
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) +
+  theme(axis.text.x=element_text(angle=270, hjust=0, vjust=0.5))
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  ggplot(aes(x=Mode/256, y=Value)) + 
+  geom_point(shape=1, aes(colour=source)) +
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) 
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  # filter(!img %in% manual$img) %>%
+  mutate(GreyStd=median(Mode, na.rm=T),
+         GreyDiff=Mode-GreyStd,
+         ValueCorr=Value-sign(GreyDiff)*abs(GreyDiff)^0.75/256,
+         ValueCorr2=Value/(Mode/GreyStd)) %>%
+  ggplot(aes(x=Value, y=ValueCorr2)) + 
+  geom_point(shape=1, aes(colour=source)) +
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) 
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  # filter(!img %in% manual$img) %>%
+  mutate(GreyStd=median(Mode, na.rm=T),
+         GreyDiff=Mode-GreyStd,
+         ValueCorr=Value-sign(GreyDiff)*abs(GreyDiff)^0.75/256,
+         ValueCorr2=Value/(Mode/GreyStd)) %>%
+  ggplot(aes(x=GreyDiff, y=ValueCorr2-Value)) + 
+  geom_point(shape=1, aes(colour=source)) +
+  # facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) 
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  # filter(SPECIESID=="Lasi_fuli") %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  # filter(!img %in% manual$img) %>%
+  mutate(GreyStd=median(Mode, na.rm=T),
+         GreyDiff=Mode-GreyStd,
+         ValueCorr=Value-sign(GreyDiff)*abs(GreyDiff)^0.75/256,
+         ValueCorr2=Value/(Mode/GreyStd)) %>%
+  ggplot(aes(x=TubeNo, y=ValueCorr2)) + 
+  geom_text(aes(label=Worker, colour=source)) + 
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) +
+  theme(axis.text.x=element_text(angle=270, hjust=0, vjust=0.5))
+
+wkr_grey %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  # filter(!img %in% manual$img) %>%
+  mutate(GreyStd=median(Mode, na.rm=T),
+         GreyDiff=Mode-GreyStd,
+         ValueCorr=Value-sign(GreyDiff)*abs(GreyDiff)^0.75/256,
+         ValueCorr2=Value/(Mode/GreyStd)) %>%
+  ggplot(aes(x=TubeNo, y=GreyDiff)) + 
+  geom_text(aes(label=Worker, colour=source)) + 
+  facet_wrap(~SPECIESID, scales="free") + 
+  scale_colour_brewer(type="qual", palette=2) +
+  theme(axis.text.x=element_text(angle=270, hjust=0, vjust=0.5))
+
+wkr_grey  %>% filter(Trait_orig == "v") %>% filter(!is.na(Mean)) %>%
+  mutate(img=paste(TubeNo, Worker, sep="-")) %>%
+  # filter(!img %in% manual$img) %>%
+  mutate(GreyStd=median(Mode, na.rm=T),
+         GreyDiff=Mode-GreyStd,
+         ValueCorr=Value-sign(GreyDiff)*abs(GreyDiff)^1/256,
+         ValueCorr2=Value/(Mode/GreyStd)) %>%
+  ggplot(aes(PwarmQ, ValueCorr2)) + ggtitle("Value / (Grey/Std)") +
+  geom_point(aes(colour=source)) + 
+  stat_smooth(method="lm", aes(group=SPECIESID), se=F) +
+  scale_colour_brewer(type="qual", palette=2)# +
+  facet_wrap(~SPECIESID, scales="free_y")
+```
 

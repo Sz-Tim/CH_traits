@@ -59,6 +59,7 @@ add_covariates <- function(ant_i, cov_f) {
 #' @param ant_i dataframe with ant species, covariates, etc for each tube number
 #' @param msr_dir directory containing LAS xlsx reports; recursive search
 #' @param col_dir directory containing color histograms; recursive search
+#' @param bg_dir directory containing gray background values
 #' @param na.thresh minimum trait value; values smaller are marked NA
 #' @param lat_names vector of trait names for lateral view
 #' @param fro_names vector of trait names for frontal view
@@ -67,7 +68,7 @@ add_covariates <- function(ant_i, cov_f) {
 #'   colony-level mean and sd values for each trait. Each is joined by all
 #'   columns from ant_i, but only tubes with trait measurements are included
 
-load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
+load_traits <- function(ant_i, msr_dir, col_dir, bg_dir, na.thresh=0.05,
                         lat_names, fro_names, dor_names) {
   # setup
   msr.tubes <- dir(msr_dir, "^[1-9]", include.dirs=T, recursive=T)
@@ -131,6 +132,14 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
   }
   close(pb)
   
+  # gray backgrounds
+  grey_bg <- dir(bg_dir, full.names=T) %>%
+    map_dfr(., ~suppressMessages(read_csv(.x))) %>%
+    mutate(TubeNo=str_split_fixed(Label, "-", 2)[,1], 
+           Worker=str_sub(str_split_fixed(Label, "-", 2)[,2], 1, 1)) %>%
+    select(TubeNo, Worker, Mode) %>%
+    rename(bg_v=Mode)
+  
   # color dataframes
   col.wkr <- do.call('rbind', col.ls) %>%
     gather(channel, count, 1:3) %>%
@@ -143,16 +152,18 @@ load_traits <- function(ant_i, msr_dir, col_dir, na.thresh=0.05,
            h=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[1,],
            s=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[2,],
            v=rgb2hsv(med_R, med_G, med_B, maxColorValue=255)[3,]) %>%
-    full_join(., do.call('rbind', grey.ls), by=c("TubeNo", "Worker"))
+    full_join(., do.call('rbind', grey.ls), by=c("TubeNo", "Worker")) %>%
+    full_join(., grey_bg, by=c("TubeNo", "Worker")) %>%
+    mutate(median_bg=median(bg_v, na.rm=T),
+           v=v/(bg_v/median_bg),
+           grey_md=grey_md/(bg_v/median_bg),
+           grey_mn=grey_mn/(bg_v/median_bg))
   col.clny <- col.wkr %>% group_by(TubeNo) %>%
     summarise(R=mean(med_R), G=mean(med_G), B=mean(med_B), 
-              v_var=var(v), v_CV=sd(v)/mean(v),
+              v_var=var(v), v_CV=sd(v)/mean(v), v=mean(v), 
               grey_var=var(grey_md), grey_CV=sd(grey_md)/mean(grey_mn),
               grey_mn=mean(grey_mn), grey_md=mean(grey_md)) %>%
-    mutate(rgbCol=paste0("rgb(", R/256, ",", G/256, ",", B/256, ")"),
-           h=rgb2hsv(R, G, B, maxColorValue=255)[1,],
-           s=rgb2hsv(R, G, B, maxColorValue=255)[2,],
-           v=rgb2hsv(R, G, B, maxColorValue=255)[3,]) 
+    mutate(rgbCol=paste0("rgb(", R/256, ",", G/256, ",", B/256, ")")) 
   
   # aggregated dataframes
   wkr.df <- rbind(do.call("rbind", fro_all), 

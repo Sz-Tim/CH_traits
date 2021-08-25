@@ -16,8 +16,10 @@ lc_i <- readxl::read_xlsx("../1_opfo/data/landcover_id.xlsx", 1) %>%
 
 gis_dir <- "../2_gis/data/VD_21781/"
 rast_end <- "_VD_21781.tif"
-msr_dir <- "data/img/"
-col_dir <- "data/img/"
+unil_external_dir <- "/Volumes/Rocinante/unil_laptop_20210520/Documents/unil/opfo_main/"
+msr_dir <- paste0(unil_external_dir, "4_traits/data/img/")
+col_dir <- paste0(unil_external_dir, "4_traits/data/img/")
+bg_dir <- "/Volumes/Rocinante/img_imagej"
 fig_dir <- "eda/"
 out_dir <- "temp/"
 reload_traits <- TRUE
@@ -30,7 +32,7 @@ trait_names <- list(lat=c("WebersLength", "HindTibia", "MidTibia"),
                           "HindFemur", "MidFemur"))
 
 if(reload_traits) {
-  ant.ls <- load_ant_data(clean_spp=T)
+  ant.ls <- load_ant_data(clean_spp=T, DNA_dir="../1_opfo/data/DNA_ID_clean")
   ant.ls$all$TubeNo <- str_remove(ant.ls$all$TubeNo, "\\.")
   
   ant.ls$all <- ant.ls$all %>% 
@@ -57,7 +59,7 @@ if(reload_traits) {
            CnpyMixed=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Mixed")*1,
            CnpyOpen=(lc_i$Canopy[match(lc, lc_i$lcNum)]=="Open")*1)
   trts <- load_traits(ant_i=ant.ls$all, msr_dir=msr_dir, col_dir=col_dir, 
-                      na.thresh=0.05, lat_names=trait_names$lat,
+                      bg_dir=bg_dir, na.thresh=0.05, lat_names=trait_names$lat,
                       fro_names=trait_names$fro, dor_names=trait_names$dor) 
   trts <- map(trts, ~.x %>% filter(!is.na(SPECIESID)))
   trts$spp_rng <- trts$clny.wide %>% group_by(SPECIESID) %>% 
