@@ -95,7 +95,7 @@ clny_min <- 3
 rng_thresh <- 200
 
 # select variable set
-var_set <- c("all", "el", "climate", "hyp")[3]
+var_set <- c("all", "el", "climate", "hyp")[1]
 fig_dir <- paste0(fig_dir, var_set, "/")
 
 # response variables to loop through
@@ -566,7 +566,7 @@ ggsave("eda/climate/ALL_b_eff.png", width=9, height=5)
 
 # All variables 
 
-```{r clim_b_eff}
+```{r all_b_eff}
 library(tidyverse); library(tidybayes)
 theme_set(theme_bw() + theme(panel.grid.minor=element_blank(),
                              panel.grid.major=element_line(colour="gray90",
